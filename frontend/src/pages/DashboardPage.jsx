@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
@@ -158,13 +159,13 @@ export default function DashboardPage() {
         </div>
         <span style={{ fontSize:'0.8rem', color:'var(--text-2)' }}>{user?.name}</span>
         {user?.role === 'admin' && (
-          <a 
-            href="/admin" 
+          <Link 
+            to="/admin" 
             className="btn btn-primary btn-sm"
             style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             ⚙️ Admin
-          </a>
+          </Link>
         )}
         <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
       </header>
