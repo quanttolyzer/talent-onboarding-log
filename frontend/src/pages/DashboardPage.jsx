@@ -157,6 +157,15 @@ export default function DashboardPage() {
           <span style={{ fontWeight:800, fontSize:'1rem' }}>Talent & Onboarding</span>
         </div>
         <span style={{ fontSize:'0.8rem', color:'var(--text-2)' }}>{user?.name}</span>
+        {user?.role === 'admin' && (
+          <a 
+            href="/admin" 
+            className="btn btn-primary btn-sm"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            ⚙️ Admin
+          </a>
+        )}
         <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
       </header>
 
