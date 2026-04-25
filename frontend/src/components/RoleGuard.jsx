@@ -5,11 +5,22 @@ export default function RoleGuard({ children, requiredRole = 'admin' }) {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
+  // DEBUG: Runtime RoleGuard inspection
+  console.log('=== ROLEGUARD DEBUG ===');
+  console.log('RoleGuard user:', user);
+  console.log('RoleGuard user.role:', user?.role);
+  console.log('RoleGuard requiredRole:', requiredRole);
+  console.log('RoleGuard isAuthenticated:', isAuthenticated);
+  console.log('RoleGuard role check result:', user?.role !== requiredRole);
+  console.log('=== END ROLEGUARD DEBUG ===');
+
   if (!isAuthenticated) {
+    console.log('RoleGuard: Not authenticated, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
   if (user?.role !== requiredRole) {
+    console.log('RoleGuard: Role mismatch, showing access denied');
     return (
       <div style={{
         display: 'flex',
@@ -40,5 +51,6 @@ export default function RoleGuard({ children, requiredRole = 'admin' }) {
     );
   }
 
+  console.log('RoleGuard: Access granted, rendering children');
   return children;
 }

@@ -16,6 +16,15 @@ export default function DashboardPage() {
   const logout     = useAuthStore((s) => s.logout);
   const qc         = useQueryClient();
 
+  // DEBUG: Runtime user state inspection
+  console.log('=== DASHBOARD DEBUG ===');
+  console.log('Runtime user object:', user);
+  console.log('Runtime user.role:', user?.role);
+  console.log('Runtime user.role type:', typeof user?.role);
+  console.log('Runtime user.role === "admin":', user?.role === 'admin');
+  console.log('localStorage user:', localStorage.getItem('user'));
+  console.log('=== END DASHBOARD DEBUG ===');
+
   // ── Tab state ─────────────────────────────────────────────
   const [tab, setTab] = useState('search'); // 'search' | 'add'
 
@@ -158,7 +167,14 @@ export default function DashboardPage() {
           <span style={{ fontWeight:800, fontSize:'1rem' }}>Talent & Onboarding</span>
         </div>
         <span style={{ fontSize:'0.8rem', color:'var(--text-2)' }}>{user?.name}</span>
-        {user?.role === 'admin' && (
+        {(() => {
+          console.log('=== ADMIN BUTTON DEBUG ===');
+          console.log('Admin button condition check:', user?.role === 'admin');
+          console.log('User role value:', user?.role);
+          console.log('Should render admin button:', user?.role === 'admin');
+          console.log('=== END ADMIN BUTTON DEBUG ===');
+          return user?.role === 'admin';
+        })() && (
           <Link 
             to="/admin" 
             className="btn btn-primary btn-sm"
