@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
@@ -42,6 +43,13 @@ export default function AdminPage() {
         zIndex: 100,
         gap: '12px',
       }}>
+        <Link 
+          to="/"
+          className="btn btn-ghost btn-sm"
+          style={{ textDecoration: 'none', marginRight: '12px' }}
+        >
+          ← Back to Dashboard
+        </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
           <div style={{
             width: '32px',
