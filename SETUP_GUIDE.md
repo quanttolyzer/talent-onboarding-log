@@ -1,5 +1,5 @@
 # Talent & Onboarding Log — Complete Build Guide
-## Stack: React + Express + Neon PostgreSQL + Render + Vercel + GitHub
+## Stack: React + Express + Neon PostgreSQL + Railway + Vercel + GitHub
 
 ---
 
@@ -7,7 +7,7 @@
 
 ```
 D:\Projects\Talent & Onboarding Log\
-├── backend/          → Express.js API (deploy to Render — free)
+├── backend/          → Express.js API (deploy to Railway — free)
 ├── frontend/         → React + Vite app (deploy to Vercel — free)
 ├── .github/          → GitHub Actions (auto-deploy on push)
 ├── .gitignore
@@ -18,7 +18,7 @@ D:\Projects\Talent & Onboarding Log\
 | Layer | Service | Free Tier |
 |---|---|---|
 | Database | Neon (PostgreSQL) | 0.5 GB, always-on |
-| Backend | Render | 750 hrs/month |
+| Backend | Railway | 750 hrs/month |
 | Frontend | Vercel | Unlimited static |
 | Repo | GitHub | Free |
 
@@ -41,8 +41,8 @@ D:\Projects\Talent & Onboarding Log\
   `postgresql://user:password@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require`
 - SAVE THIS — you'll need it later
 
-### 3. Render (Free Backend Hosting)
-- Go to https://render.com → Sign up with GitHub
+### 3. Railway (Free Backend Hosting)
+- Go to https://railway.app → Sign up with GitHub
 - You'll connect your repo here later (after first push)
 
 ### 4. Vercel (Free Frontend Hosting)
