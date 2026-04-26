@@ -142,14 +142,14 @@ VITE_API_URL=http://localhost:3001/api/v1
 
 ## PHASE 4 — Deployment (after build works locally)
 
-### Deploy Backend to Render
-1. Go to https://render.com → New → Web Service
+### Deploy Backend to Railway
+1. Go to https://railway.app → New Project
 2. Connect your GitHub repo
 3. **Root Directory:** `backend`
 4. **Build Command:** `npm install`
 5. **Start Command:** `node server.js`
 6. Add environment variables (same as your `.env` but with Neon URL)
-7. Deploy — you'll get a URL like `https://talent-api.onrender.com`
+7. Deploy — you'll get a URL like `https://talent-api.up.railway.app`
 
 ### Deploy Frontend to Vercel
 1. Go to https://vercel.com → New Project
@@ -157,7 +157,7 @@ VITE_API_URL=http://localhost:3001/api/v1
 3. **Root Directory:** `frontend`
 4. **Framework Preset:** Vite
 5. Add environment variable:
-   - `VITE_API_URL` = your Render backend URL + `/api/v1`
+   - `VITE_API_URL` = your Railway backend URL + `/api/v1`
 6. Deploy
 
 ---
@@ -198,5 +198,5 @@ when you finish a feature. The auto-sync is your safety net.
 1. Open Windsurf → open D:\Projects\Talent & Onboarding Log
 2. Double-click auto-sync.bat (runs in background)
 3. Code in Windsurf
-4. Push to GitHub main → Render + Vercel auto-deploy
+4. Push to GitHub main → Railway + Vercel auto-deploy
 ```
