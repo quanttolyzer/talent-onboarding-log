@@ -20,11 +20,14 @@ export default function DashboardPage() {
   const [tab, setTab] = useState('search');
 
   // ── Filters ───────────────────────────────────────────────
-  const [search,        setSearch]        = useState('');
-  const [filterStatus,  setFilterStatus]  = useState('');
-  const [filterType,    setFilterType]    = useState('');
-  const [filterOwner,   setFilterOwner]   = useState('');
-  const [page,          setPage]          = useState(1);
+  const [search,         setSearch]         = useState('');
+  const [filterStatus,   setFilterStatus]   = useState('');
+  const [filterType,     setFilterType]     = useState('');
+  const [filterOwner,    setFilterOwner]    = useState('');
+  const [filterDept,     setFilterDept]     = useState('');      // NEW
+  const [filterPosition, setFilterPosition] = useState('');     // NEW
+  const [filterCountry,  setFilterCountry]  = useState('');     // NEW
+  const [page,           setPage]           = useState(1);
   const LIMIT = 100;
 
   // ── Selection ─────────────────────────────────────────────
@@ -46,14 +49,19 @@ export default function DashboardPage() {
 
   // ── Queries ───────────────────────────────────────────────
   const ticketsQuery = useQuery({
-    queryKey: ['tickets', page, debouncedSearch, filterStatus, filterType, filterOwner],
+    // NEW: filterDept, filterPosition, filterCountry added to queryKey
+    queryKey: ['tickets', page, debouncedSearch, filterStatus, filterType, filterOwner, filterDept, filterPosition, filterCountry],
     queryFn: () => api.get('/tickets', {
       params: {
-        page, limit: LIMIT,
-        search:        debouncedSearch || undefined,
-        status:        filterStatus    || undefined,
-        ticket_type:   filterType      || undefined,
-        task_owner_id: filterOwner     || undefined,
+        page,
+        limit:              LIMIT,
+        search:             debouncedSearch  || undefined,
+        status:             filterStatus     || undefined,
+        ticket_type:        filterType       || undefined,
+        task_owner_id:      filterOwner      || undefined,
+        department_id:      filterDept       || undefined,   // NEW
+        position_id:        filterPosition   || undefined,   // NEW
+        country_company_id: filterCountry    || undefined,   // NEW
       },
     }).then(r => r.data),
     keepPreviousData: true,
@@ -114,6 +122,7 @@ export default function DashboardPage() {
   function clearFilters() {
     setSearch(''); setDebouncedSearch('');
     setFilterStatus(''); setFilterType(''); setFilterOwner('');
+    setFilterDept(''); setFilterPosition(''); setFilterCountry(''); // NEW
     setPage(1);
   }
   const selectedTickets = useMemo(
@@ -126,7 +135,6 @@ export default function DashboardPage() {
     }
   }
 
-  // total columns = 19 (checkbox + 17 data cols + actions)
   const COL_COUNT = 19;
 
   return (
@@ -149,6 +157,7 @@ export default function DashboardPage() {
           <span style={{ fontWeight:800, fontSize:'1rem' }}>Talent & Onboarding</span>
         </div>
         <span style={{ fontSize:'0.8rem', color:'var(--text-2)' }}>{user?.name}</span>
+        {/* FIX: removed debug console.log IIFE — clean conditional render */}
         {user?.role === 'admin' && (
           <Link
             to="/admin"
@@ -195,8 +204,8 @@ export default function DashboardPage() {
               <button className="btn btn-ghost btn-sm" onClick={clearFilters}>Clear all</button>
             </div>
 
-            {/* Filter row */}
-            <div style={{ display:'flex', gap:'10px', marginBottom:'16px', flexWrap:'wrap' }}>
+            {/* Filter row — Row 1: Status, Type, Owner */}
+            <div style={{ display:'flex', gap:'10px', marginBottom:'10px', flexWrap:'wrap' }}>
               <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'150px' }}>
                 <option value="">All Statuses</option>
                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -211,6 +220,33 @@ export default function DashboardPage() {
                 <option value="">All Owners</option>
                 {(filterOptionsQuery.data?.owners || []).map(o => (
                   <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter row — Row 2: Department, Position, Country & Company + bulk actions */}
+            <div style={{ display:'flex', gap:'10px', marginBottom:'16px', flexWrap:'wrap' }}>
+              {/* NEW: Department filter */}
+              <select value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+                <option value="">All Departments</option>
+                {(mappingsQuery.data?.departments || []).map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+
+              {/* NEW: Position filter */}
+              <select value={filterPosition} onChange={e => { setFilterPosition(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+                <option value="">All Positions</option>
+                {(mappingsQuery.data?.positions || []).map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+
+              {/* NEW: Country & Company filter */}
+              <select value={filterCountry} onChange={e => { setFilterCountry(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'180px' }}>
+                <option value="">All Countries & Companies</option>
+                {(mappingsQuery.data?.country_companies || []).map(c => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
                 ))}
               </select>
 
@@ -239,14 +275,13 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* ── Table with horizontal + vertical scroll ── */}
+            {/* ── Table ── */}
             <div style={{
               overflowX: 'auto',
               overflowY: 'auto',
-              maxHeight: 'calc(100vh - 320px)',
+              maxHeight: 'calc(100vh - 360px)',
               borderRadius: 'var(--radius)',
               border: '1px solid var(--border)',
-              /* always show horizontal scrollbar so users know table is scrollable */
               scrollbarWidth: 'thin',
             }}>
               <table className="data-table" style={{ minWidth: '1800px' }}>
@@ -260,7 +295,6 @@ export default function DashboardPage() {
                         style={{ width:'auto' }}
                       />
                     </th>
-                    {/* ── All 17 data columns in Excel order ── */}
                     <th>Date</th>
                     <th>Task Owner</th>
                     <th>Ticket #</th>
@@ -299,29 +333,23 @@ export default function DashboardPage() {
                   {tickets.map(ticket => (
                     <tr key={ticket.id} className={selected.has(ticket.id) ? 'selected' : ''}>
 
-                      {/* Checkbox — sticky left */}
                       <td style={{ position:'sticky', left:0, background: selected.has(ticket.id) ? 'rgba(99,102,241,0.08)' : 'var(--bg-surface)', zIndex:4 }}>
                         <input type="checkbox" checked={selected.has(ticket.id)}
                           onChange={() => toggleSelect(ticket.id)} style={{ width:'auto' }} />
                       </td>
 
-                      {/* Date */}
                       <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
                         {ticket.entry_date?.slice(0,10) || '—'}
                       </td>
 
-                      {/* Task Owner */}
                       <td style={{ whiteSpace:'nowrap' }}>{ticket.task_owner_name || '—'}</td>
 
-                      {/* Ticket # */}
                       <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', color:'var(--primary)', whiteSpace:'nowrap' }}>
                         {ticket.ticket_number}
                       </td>
 
-                      {/* Ticket Type */}
                       <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.ticket_type}</td>
 
-                      {/* Status */}
                       <td style={{ whiteSpace:'nowrap' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                           <StatusBadge status={ticket.ticket_status} />
@@ -331,63 +359,50 @@ export default function DashboardPage() {
                         </div>
                       </td>
 
-                      {/* Ticket Date */}
                       <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
                         {ticket.ticket_date?.slice(0,10) || '—'}
                       </td>
 
-                      {/* Position */}
                       <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {ticket.position_name || '—'}
                       </td>
 
-                      {/* Management Type */}
                       <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>
                         {ticket.management_type || '—'}
                       </td>
 
-                      {/* Department */}
                       <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {ticket.department_name || '—'}
                       </td>
 
-                      {/* Ultimate HM */}
                       <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {ticket.ultimate_hm_name || '—'}
                       </td>
 
-                      {/* Direct HM */}
                       <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {ticket.direct_hm_name || '—'}
                       </td>
 
-                      {/* Country & Company */}
                       <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {ticket.country_company_label || '—'}
                       </td>
 
-                      {/* Candidates */}
                       <td style={{ textAlign:'center' }}>{ticket.candidate_count}</td>
 
-                      {/* Action */}
                       <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.action}</td>
 
-                      {/* Sub-Action */}
                       <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {ticket.sub_action || '—'}
                       </td>
 
-                      {/* Remarks */}
                       <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {ticket.remarks || '—'}
                       </td>
 
-                      {/* Group */}
                       <td style={{ fontFamily:'var(--mono)', fontSize:'0.75rem', color:'var(--text-3)', whiteSpace:'nowrap' }}>
                         {ticket.group_code || '—'}
                       </td>
 
-                      {/* Actions — sticky right */}
                       <td style={{ position:'sticky', right:0, background: selected.has(ticket.id) ? 'rgba(99,102,241,0.08)' : 'var(--bg-surface)', zIndex:4 }}>
                         <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
                           <select

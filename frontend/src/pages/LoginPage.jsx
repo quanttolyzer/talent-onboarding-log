@@ -4,35 +4,26 @@ import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading,  setLoading]  = useState(false);
 
-  const login = useAuthStore((s) => s.login);
+  const login    = useAuthStore((s) => s.login);
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
-    e.preventDefault();          // prevent page reload
-    e.stopPropagation();         // extra safety (important)
+    e.preventDefault();
+    e.stopPropagation();
 
-    console.log("LOGIN CLICKED");
-
-    if (loading) return;         // prevent double clicks
+    if (loading) return;
 
     setLoading(true);
-
     try {
       await login(email, password);
-
-      toast.success("Login successful");
-
-      navigate('/'); // redirect to dashboard
+      toast.success('Login successful');
+      navigate('/');
     } catch (err) {
-      console.log("LOGIN ERROR:", err);
-
-      toast.error(
-        err.response?.data?.error || 'Login failed'
-      );
+      toast.error(err.response?.data?.error || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -52,18 +43,14 @@ export default function LoginPage() {
         {/* Logo */}
         <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'32px' }}>
           <div style={{
-            width:'42px',
-            height:'42px',
+            width:'42px', height:'42px',
             background:'linear-gradient(135deg, var(--primary), var(--accent))',
             borderRadius:'12px',
-            display:'flex',
-            alignItems:'center',
-            justifyContent:'center',
+            display:'flex', alignItems:'center', justifyContent:'center',
             fontSize:'20px',
           }}>
             💼
           </div>
-
           <div>
             <div style={{ fontWeight:800, fontSize:'1.1rem' }}>
               Talent & Onboarding
@@ -74,11 +61,10 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* FORM */}
+        {/* Form */}
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginBottom:'16px' }}>
             <label htmlFor="email">Email</label>
-
             <input
               id="email"
               type="email"
@@ -92,7 +78,6 @@ export default function LoginPage() {
 
           <div className="form-group" style={{ marginBottom:'24px' }}>
             <label htmlFor="password">Password</label>
-
             <input
               id="password"
               type="password"
@@ -120,15 +105,14 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {/* FIX: removed public default credentials — contact your admin for access */}
         <p style={{
           marginTop:'20px',
           fontSize:'0.78rem',
           color:'var(--text-3)',
-          textAlign:'center'
+          textAlign:'center',
         }}>
-          Default admin: admin@talent.internal / Admin@123
-          <br/>
-          Change your password after first login.
+          Contact your administrator if you need access.
         </p>
 
       </div>

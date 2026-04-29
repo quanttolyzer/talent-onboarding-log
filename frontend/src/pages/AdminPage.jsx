@@ -1,7 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import UserManagement from '../components/admin/UserManagement';
@@ -11,25 +10,26 @@ import SystemStats from '../components/admin/SystemStats';
 
 export default function AdminPage() {
   const user = useAuthStore((s) => s.user);
-  const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState('users');
 
   // System stats query
   const statsQuery = useQuery({
     queryKey: ['admin-stats'],
     queryFn: () => api.get('/admin/stats').then(r => r.data),
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
+  // FIX: label no longer contains the emoji — icon renders it once
   const tabs = [
-    { id: 'users', label: '👥 User Management', icon: '👥' },
-    { id: 'dropdowns', label: '📋 Dropdown Management', icon: '📋' },
-    { id: 'export', label: '📊 Data Export', icon: '📊' },
-    { id: 'stats', label: '📈 System Stats', icon: '📈' },
+    { id: 'users',     label: 'User Management',     icon: '👥' },
+    { id: 'dropdowns', label: 'Dropdown Management',  icon: '📋' },
+    { id: 'export',    label: 'Data Export',           icon: '📊' },
+    { id: 'stats',     label: 'System Stats',          icon: '📈' },
   ];
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+
       {/* Header */}
       <header style={{
         height: '60px',
@@ -43,7 +43,7 @@ export default function AdminPage() {
         zIndex: 100,
         gap: '12px',
       }}>
-        <Link 
+        <Link
           to="/"
           className="btn btn-ghost btn-sm"
           style={{ textDecoration: 'none', marginRight: '12px' }}
@@ -68,8 +68,15 @@ export default function AdminPage() {
 
       {/* Main Content */}
       <main style={{ flex: 1, padding: '24px', maxWidth: '100%', overflow: 'hidden' }}>
+
         {/* Tab Navigation */}
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+        <div style={{
+          display: 'flex',
+          gap: '4px',
+          marginBottom: '24px',
+          borderBottom: '1px solid var(--border)',
+          paddingBottom: 0,
+        }}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -91,7 +98,7 @@ export default function AdminPage() {
                 gap: '8px',
               }}
             >
-              <span>{tab.icon}</span>
+              <span style={{ fontSize: '16px' }}>{tab.icon}</span>
               <span>{tab.label}</span>
             </button>
           ))}
@@ -99,10 +106,12 @@ export default function AdminPage() {
 
         {/* Tab Content */}
         <div className="fade-up">
-          {activeTab === 'users' && <UserManagement />}
+          {activeTab === 'users'     && <UserManagement />}
           {activeTab === 'dropdowns' && <DropdownManagement />}
-          {activeTab === 'export' && <DataExport />}
-          {activeTab === 'stats' && <SystemStats stats={statsQuery.data} isLoading={statsQuery.isLoading} />}
+          {activeTab === 'export'    && <DataExport />}
+          {activeTab === 'stats'     && (
+            <SystemStats stats={statsQuery.data} isLoading={statsQuery.isLoading} />
+          )}
         </div>
       </main>
     </div>
