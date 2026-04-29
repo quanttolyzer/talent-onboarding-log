@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -8,41 +8,29 @@ import StatusBadge from '../components/StatusBadge';
 import TicketModal from '../components/TicketModal';
 import CloneModal from '../components/CloneModal';
 
-const STATUSES = ['On-hold','In-Progress','Hired','Active','Accepted','Joined','Cancelled','Rejected'];
+const STATUSES     = ['On-hold','In-Progress','Hired','Active','Accepted','Joined','Cancelled','Rejected'];
 const TICKET_TYPES = ['Hiring Ticket','Offer Ticket','Onboarding Ticket','Offboarding'];
 
 export default function DashboardPage() {
-  const user       = useAuthStore((s) => s.user);
-  const logout     = useAuthStore((s) => s.logout);
-  const qc         = useQueryClient();
+  const user   = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const qc     = useQueryClient();
 
-  // DEBUG: Runtime user state inspection
-  console.log('=== DASHBOARD DEBUG ===');
-  console.log('Runtime user object:', user);
-  console.log('Runtime user.role:', user?.role);
-  console.log('Runtime user.role type:', typeof user?.role);
-  console.log('Runtime user.role === "admin":', user?.role === 'admin');
-  console.log('localStorage user:', localStorage.getItem('user'));
-  console.log('=== END DASHBOARD DEBUG ===');
+  // ── Tab ───────────────────────────────────────────────────
+  const [tab, setTab] = useState('search');
 
-  // ── Tab state ─────────────────────────────────────────────
-  const [tab, setTab] = useState('search'); // 'search' | 'add'
-
-  // ── Filter/search state ───────────────────────────────────
-  const [search,      setSearch]      = useState('');
-  const [filterStatus,setFilterStatus]= useState('');
-  const [filterType,  setFilterType]  = useState('');
-  const [filterOwner, setFilterOwner] = useState('');
-  const [page,        setPage]        = useState(1);
+  // ── Filters ───────────────────────────────────────────────
+  const [search,        setSearch]        = useState('');
+  const [filterStatus,  setFilterStatus]  = useState('');
+  const [filterType,    setFilterType]    = useState('');
+  const [filterOwner,   setFilterOwner]   = useState('');
+  const [page,          setPage]          = useState(1);
   const LIMIT = 100;
 
-  // ── Selection state ───────────────────────────────────────
-  const [selected, setSelected] = useState(new Set());
-
-  // ── Modal state ───────────────────────────────────────────
-  const [editTicket,  setEditTicket]  = useState(null);  // ticket obj or null
-  const [showAdd,     setShowAdd]     = useState(false);
-  const [cloneRows,   setCloneRows]   = useState(null);  // array of tickets
+  // ── Selection ─────────────────────────────────────────────
+  const [selected,   setSelected]   = useState(new Set());
+  const [editTicket, setEditTicket] = useState(null);
+  const [cloneRows,  setCloneRows]  = useState(null);
 
   // ── Debounced search ──────────────────────────────────────
   const searchTimer = useRef(null);
@@ -56,16 +44,16 @@ export default function DashboardPage() {
     }, 300);
   }
 
-  // ── Data queries ──────────────────────────────────────────
+  // ── Queries ───────────────────────────────────────────────
   const ticketsQuery = useQuery({
     queryKey: ['tickets', page, debouncedSearch, filterStatus, filterType, filterOwner],
     queryFn: () => api.get('/tickets', {
       params: {
         page, limit: LIMIT,
-        search: debouncedSearch || undefined,
-        status: filterStatus || undefined,
-        ticket_type: filterType || undefined,
-        task_owner_id: filterOwner || undefined,
+        search:        debouncedSearch || undefined,
+        status:        filterStatus    || undefined,
+        ticket_type:   filterType      || undefined,
+        task_owner_id: filterOwner     || undefined,
       },
     }).then(r => r.data),
     keepPreviousData: true,
@@ -98,15 +86,15 @@ export default function DashboardPage() {
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }) => api.patch(`/tickets/${id}/status`, { status }),
-    onSuccess: (_, vars) => {
+    onSuccess: () => {
       qc.invalidateQueries(['tickets']);
-      toast.success(vars.synced ? 'Status updated & synced to group' : 'Status updated');
+      toast.success('Status updated');
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Update failed'),
   });
 
   // ── Helpers ───────────────────────────────────────────────
-  const tickets = ticketsQuery.data?.data || [];
+  const tickets = ticketsQuery.data?.data  || [];
   const total   = ticketsQuery.data?.total || 0;
   const pages   = ticketsQuery.data?.pages || 1;
 
@@ -118,44 +106,38 @@ export default function DashboardPage() {
     });
   }
   function toggleAll() {
-    if (selected.size === tickets.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(tickets.map(t => t.id)));
-    }
+    setSelected(selected.size === tickets.length && tickets.length > 0
+      ? new Set()
+      : new Set(tickets.map(t => t.id))
+    );
   }
-
   function clearFilters() {
     setSearch(''); setDebouncedSearch('');
     setFilterStatus(''); setFilterType(''); setFilterOwner('');
     setPage(1);
   }
-
   const selectedTickets = useMemo(
     () => tickets.filter(t => selected.has(t.id)),
     [tickets, selected]
   );
-
   function confirmDelete(ids) {
-    const count = ids.length;
-    if (window.confirm(`Delete ${count} ticket${count > 1 ? 's' : ''}? This cannot be undone.`)) {
+    if (window.confirm(`Delete ${ids.length} ticket${ids.length > 1 ? 's' : ''}? This cannot be undone.`)) {
       deleteMutation.mutate(ids);
     }
   }
 
-  // ── Render ────────────────────────────────────────────────
+  // total columns = 19 (checkbox + 17 data cols + actions)
+  const COL_COUNT = 19;
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
 
       {/* ── Header ── */}
       <header style={{
-        height: '60px',
-        background: 'var(--bg-surface)',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center',
-        padding: '0 24px',
-        position: 'sticky', top: 0, zIndex: 100,
-        gap: '12px',
+        height:'60px', background:'var(--bg-surface)',
+        borderBottom:'1px solid var(--border)',
+        display:'flex', alignItems:'center',
+        padding:'0 24px', position:'sticky', top:0, zIndex:100, gap:'12px',
       }}>
         <div style={{ display:'flex', alignItems:'center', gap:'10px', flex:1 }}>
           <div style={{
@@ -167,18 +149,11 @@ export default function DashboardPage() {
           <span style={{ fontWeight:800, fontSize:'1rem' }}>Talent & Onboarding</span>
         </div>
         <span style={{ fontSize:'0.8rem', color:'var(--text-2)' }}>{user?.name}</span>
-        {(() => {
-          console.log('=== ADMIN BUTTON DEBUG ===');
-          console.log('Admin button condition check:', user?.role === 'admin');
-          console.log('User role value:', user?.role);
-          console.log('Should render admin button:', user?.role === 'admin');
-          console.log('=== END ADMIN BUTTON DEBUG ===');
-          return user?.role === 'admin';
-        })() && (
-          <Link 
-            to="/admin" 
+        {user?.role === 'admin' && (
+          <Link
+            to="/admin"
             className="btn btn-primary btn-sm"
-            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            style={{ textDecoration:'none', display:'inline-flex', alignItems:'center', gap:'6px' }}
           >
             ⚙️ Admin
           </Link>
@@ -190,25 +165,15 @@ export default function DashboardPage() {
       <main style={{ flex:1, padding:'24px', maxWidth:'100%', overflow:'hidden' }}>
 
         {/* ── Tabs ── */}
-        <div style={{ display:'flex', gap:'4px', marginBottom:'24px', borderBottom:'1px solid var(--border)', paddingBottom:0 }}>
+        <div style={{ display:'flex', gap:'4px', marginBottom:'24px', borderBottom:'1px solid var(--border)' }}>
           {[['search','🔍 Search & Edit'],['add','➕ Add New Entry']].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              style={{
-                padding:'10px 20px',
-                background:'transparent',
-                border:'none',
-                borderBottom: tab === key ? '2px solid var(--primary)' : '2px solid transparent',
-                color: tab === key ? 'var(--text-1)' : 'var(--text-2)',
-                fontFamily:'var(--font)',
-                fontWeight:600,
-                fontSize:'0.9rem',
-                cursor:'pointer',
-                transition:'var(--transition)',
-                marginBottom:'-1px',
-              }}
-            >{label}</button>
+            <button key={key} onClick={() => setTab(key)} style={{
+              padding:'10px 20px', background:'transparent', border:'none',
+              borderBottom: tab === key ? '2px solid var(--primary)' : '2px solid transparent',
+              color: tab === key ? 'var(--text-1)' : 'var(--text-2)',
+              fontFamily:'var(--font)', fontWeight:600, fontSize:'0.9rem',
+              cursor:'pointer', transition:'var(--transition)', marginBottom:'-1px',
+            }}>{label}</button>
           ))}
         </div>
 
@@ -251,7 +216,7 @@ export default function DashboardPage() {
 
               <div style={{ marginLeft:'auto', display:'flex', gap:'8px' }}>
                 {selected.size > 0 && <>
-                  <button className="btn btn-ghost btn-sm" onClick={() => { setCloneRows(selectedTickets); }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setCloneRows(selectedTickets)}>
                     Clone ({selected.size})
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setEditTicket(selectedTickets[0])}>
@@ -266,73 +231,165 @@ export default function DashboardPage() {
 
             {/* Results count */}
             <div style={{ fontSize:'0.8rem', color:'var(--text-2)', marginBottom:'12px' }}>
-              {ticketsQuery.isLoading ? 'Loading…' : `${total.toLocaleString()} result${total !== 1 ? 's' : ''}`}
-              {selected.size > 0 && <span style={{ marginLeft:'12px', color:'var(--primary)' }}>{selected.size} selected</span>}
+              {ticketsQuery.isLoading
+                ? 'Loading…'
+                : `${total.toLocaleString()} result${total !== 1 ? 's' : ''}`}
+              {selected.size > 0 && (
+                <span style={{ marginLeft:'12px', color:'var(--primary)' }}>{selected.size} selected</span>
+              )}
             </div>
 
-            {/* Table */}
-            <div style={{ overflow:'auto', maxHeight:'calc(100vh - 320px)', borderRadius:'var(--radius)', border:'1px solid var(--border)' }}>
-              <table className="data-table">
+            {/* ── Table with horizontal + vertical scroll ── */}
+            <div style={{
+              overflowX: 'auto',
+              overflowY: 'auto',
+              maxHeight: 'calc(100vh - 320px)',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--border)',
+              /* always show horizontal scrollbar so users know table is scrollable */
+              scrollbarWidth: 'thin',
+            }}>
+              <table className="data-table" style={{ minWidth: '1800px' }}>
                 <thead>
                   <tr>
-                    <th style={{ width:'36px' }}>
-                      <input type="checkbox" checked={selected.size === tickets.length && tickets.length > 0}
-                        onChange={toggleAll} style={{ width:'auto' }} />
+                    <th style={{ width:'36px', position:'sticky', left:0, zIndex:6, background:'var(--bg)' }}>
+                      <input
+                        type="checkbox"
+                        checked={selected.size === tickets.length && tickets.length > 0}
+                        onChange={toggleAll}
+                        style={{ width:'auto' }}
+                      />
                     </th>
+                    {/* ── All 17 data columns in Excel order ── */}
                     <th>Date</th>
-                    <th>Owner</th>
+                    <th>Task Owner</th>
                     <th>Ticket #</th>
-                    <th>Type</th>
+                    <th>Ticket Type</th>
                     <th>Status</th>
                     <th>Ticket Date</th>
                     <th>Position</th>
+                    <th>Mgmt Type</th>
                     <th>Department</th>
+                    <th>Ultimate HM</th>
+                    <th>Direct HM</th>
+                    <th>Country & Company</th>
+                    <th style={{ textAlign:'center' }}>Candidates</th>
                     <th>Action</th>
                     <th>Sub-Action</th>
+                    <th>Remarks</th>
                     <th>Group</th>
-                    <th>Candidates</th>
-                    <th>Actions</th>
+                    <th style={{ position:'sticky', right:0, zIndex:6, background:'var(--bg)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ticketsQuery.isLoading && (
-                    <tr><td colSpan={14} style={{ textAlign:'center', padding:'40px', color:'var(--text-2)' }}>
-                      <div className="spinner" style={{ margin:'0 auto' }} />
-                    </td></tr>
+                    <tr>
+                      <td colSpan={COL_COUNT} style={{ textAlign:'center', padding:'40px', color:'var(--text-2)' }}>
+                        <div className="spinner" style={{ margin:'0 auto' }} />
+                      </td>
+                    </tr>
                   )}
                   {!ticketsQuery.isLoading && tickets.length === 0 && (
-                    <tr><td colSpan={14} style={{ textAlign:'center', padding:'40px', color:'var(--text-2)' }}>
-                      No tickets found. Try adjusting your filters.
-                    </td></tr>
+                    <tr>
+                      <td colSpan={COL_COUNT} style={{ textAlign:'center', padding:'40px', color:'var(--text-2)' }}>
+                        No tickets found. Try adjusting your filters.
+                      </td>
+                    </tr>
                   )}
                   {tickets.map(ticket => (
                     <tr key={ticket.id} className={selected.has(ticket.id) ? 'selected' : ''}>
-                      <td>
+
+                      {/* Checkbox — sticky left */}
+                      <td style={{ position:'sticky', left:0, background: selected.has(ticket.id) ? 'rgba(99,102,241,0.08)' : 'var(--bg-surface)', zIndex:4 }}>
                         <input type="checkbox" checked={selected.has(ticket.id)}
                           onChange={() => toggleSelect(ticket.id)} style={{ width:'auto' }} />
                       </td>
-                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem' }}>{ticket.entry_date?.slice(0,10)}</td>
-                      <td>{ticket.task_owner_name || '—'}</td>
-                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', color:'var(--primary)' }}>{ticket.ticket_number}</td>
-                      <td style={{ fontSize:'0.8rem' }}>{ticket.ticket_type}</td>
-                      <td>
+
+                      {/* Date */}
+                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
+                        {ticket.entry_date?.slice(0,10) || '—'}
+                      </td>
+
+                      {/* Task Owner */}
+                      <td style={{ whiteSpace:'nowrap' }}>{ticket.task_owner_name || '—'}</td>
+
+                      {/* Ticket # */}
+                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', color:'var(--primary)', whiteSpace:'nowrap' }}>
+                        {ticket.ticket_number}
+                      </td>
+
+                      {/* Ticket Type */}
+                      <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.ticket_type}</td>
+
+                      {/* Status */}
+                      <td style={{ whiteSpace:'nowrap' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                           <StatusBadge status={ticket.ticket_status} />
                           {ticket.is_group_master && (
-                            <span title="Group master — controls status for cloned rows" style={{ fontSize:'12px', cursor:'help' }}>⭐</span>
+                            <span title="Group master — controls status for all cloned rows" style={{ fontSize:'12px', cursor:'help' }}>⭐</span>
                           )}
                         </div>
                       </td>
-                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem' }}>{ticket.ticket_date?.slice(0,10)}</td>
-                      <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis' }}>{ticket.position_name || '—'}</td>
-                      <td style={{ maxWidth:'140px', overflow:'hidden', textOverflow:'ellipsis' }}>{ticket.department_name || '—'}</td>
-                      <td style={{ fontSize:'0.8rem' }}>{ticket.action}</td>
-                      <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis' }}>{ticket.sub_action || '—'}</td>
-                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.75rem', color:'var(--text-3)' }}>{ticket.group_code || '—'}</td>
+
+                      {/* Ticket Date */}
+                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
+                        {ticket.ticket_date?.slice(0,10) || '—'}
+                      </td>
+
+                      {/* Position */}
+                      <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {ticket.position_name || '—'}
+                      </td>
+
+                      {/* Management Type */}
+                      <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>
+                        {ticket.management_type || '—'}
+                      </td>
+
+                      {/* Department */}
+                      <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {ticket.department_name || '—'}
+                      </td>
+
+                      {/* Ultimate HM */}
+                      <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {ticket.ultimate_hm_name || '—'}
+                      </td>
+
+                      {/* Direct HM */}
+                      <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {ticket.direct_hm_name || '—'}
+                      </td>
+
+                      {/* Country & Company */}
+                      <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {ticket.country_company_label || '—'}
+                      </td>
+
+                      {/* Candidates */}
                       <td style={{ textAlign:'center' }}>{ticket.candidate_count}</td>
-                      <td>
-                        <div style={{ display:'flex', gap:'6px' }}>
-                          {/* Inline status dropdown — only group master can broadcast */}
+
+                      {/* Action */}
+                      <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.action}</td>
+
+                      {/* Sub-Action */}
+                      <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {ticket.sub_action || '—'}
+                      </td>
+
+                      {/* Remarks */}
+                      <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {ticket.remarks || '—'}
+                      </td>
+
+                      {/* Group */}
+                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.75rem', color:'var(--text-3)', whiteSpace:'nowrap' }}>
+                        {ticket.group_code || '—'}
+                      </td>
+
+                      {/* Actions — sticky right */}
+                      <td style={{ position:'sticky', right:0, background: selected.has(ticket.id) ? 'rgba(99,102,241,0.08)' : 'var(--bg-surface)', zIndex:4 }}>
+                        <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
                           <select
                             value={ticket.ticket_status}
                             onChange={e => statusMutation.mutate({ id: ticket.id, status: e.target.value })}
@@ -340,10 +397,11 @@ export default function DashboardPage() {
                           >
                             {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
-                          <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)}>✏️</button>
-                          <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])}>🗑</button>
+                          <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
+                          <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
                         </div>
                       </td>
+
                     </tr>
                   ))}
                 </tbody>
@@ -368,7 +426,11 @@ export default function DashboardPage() {
               mode="add"
               mappings={mappingsQuery.data}
               onClose={() => setTab('search')}
-              onSaved={() => { qc.invalidateQueries(['tickets']); setTab('search'); toast.success('Entry added!'); }}
+              onSaved={() => {
+                qc.invalidateQueries(['tickets']);
+                setTab('search');
+                toast.success('Entry added!');
+              }}
             />
           </div>
         )}
@@ -381,7 +443,11 @@ export default function DashboardPage() {
           ticket={editTicket}
           mappings={mappingsQuery.data}
           onClose={() => setEditTicket(null)}
-          onSaved={() => { qc.invalidateQueries(['tickets']); setEditTicket(null); toast.success('Updated!'); }}
+          onSaved={() => {
+            qc.invalidateQueries(['tickets']);
+            setEditTicket(null);
+            toast.success('Updated!');
+          }}
         />
       )}
 
@@ -389,7 +455,12 @@ export default function DashboardPage() {
         <CloneModal
           rows={cloneRows}
           onClose={() => setCloneRows(null)}
-          onSaved={() => { qc.invalidateQueries(['tickets']); setCloneRows(null); setSelected(new Set()); toast.success('Cloned!'); }}
+          onSaved={() => {
+            qc.invalidateQueries(['tickets']);
+            setCloneRows(null);
+            setSelected(new Set());
+            toast.success('Cloned!');
+          }}
         />
       )}
     </div>
