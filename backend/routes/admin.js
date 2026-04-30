@@ -119,15 +119,22 @@ router.delete('/users/:id', async (req, res, next) => {
 
 // ── DYNAMIC DROPDOWNS MANAGEMENT ──────────────────────────────
 
-// GET /api/v1/admin/dropdowns
+// GET /api/v1/admin/dropdowns — returns ALL editable dropdown tables
 router.get('/dropdowns', async (req, res, next) => {
   try {
-    const [positions, departments, hiringManagers, countryCompanies] = await Promise.all([
+    const [
+      positions, departments, hiringManagers, countryCompanies,
+      ticketStatuses, ticketTypes, managementTypes, actions, subActions,
+    ] = await Promise.all([
       pool.query('SELECT id, name, is_active, created_at FROM positions ORDER BY name'),
       pool.query('SELECT id, name, is_active, created_at FROM departments ORDER BY name'),
       pool.query('SELECT id, name, is_active, created_at FROM hiring_managers ORDER BY name'),
-      // Normalize label → name so DropdownManagement can use a single "name" field for all sections
       pool.query('SELECT id, label AS name, is_active, created_at FROM country_companies ORDER BY label'),
+      pool.query('SELECT id, name, is_active, created_at FROM ticket_statuses ORDER BY sort_order, name'),
+      pool.query('SELECT id, name, is_active, created_at FROM ticket_types ORDER BY sort_order, name'),
+      pool.query('SELECT id, name, is_active, created_at FROM management_types ORDER BY sort_order, name'),
+      pool.query('SELECT id, name, is_active, created_at FROM actions ORDER BY sort_order, name'),
+      pool.query('SELECT id, action_name, name, is_active, created_at FROM sub_actions ORDER BY action_name, sort_order, name'),
     ]);
 
     res.json({
@@ -135,6 +142,11 @@ router.get('/dropdowns', async (req, res, next) => {
       departments:       departments.rows,
       hiring_managers:   hiringManagers.rows,
       country_companies: countryCompanies.rows,
+      ticket_statuses:   ticketStatuses.rows,
+      ticket_types:      ticketTypes.rows,
+      management_types:  managementTypes.rows,
+      actions:           actions.rows,
+      sub_actions:       subActions.rows,
     });
   } catch (err) { next(err); }
 });
@@ -300,6 +312,99 @@ router.delete('/country-companies/:id', async (req, res, next) => {
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Country/company not found' });
     res.json({ message: 'Country/company deleted successfully' });
+  } catch (err) { next(err); }
+});
+
+// ── GENERIC CRUD HELPER for simple name+is_active tables ──────
+function makeCrud(table, notFoundMsg) {
+  return {
+    create: async (req, res, next) => {
+      try {
+        const { name } = req.body;
+        if (!name) return res.status(400).json({ error: 'Name is required' });
+        const { rows } = await pool.query(
+          `INSERT INTO ${table} (name) VALUES ($1) RETURNING id, name, is_active, created_at`, [name]
+        );
+        res.status(201).json(rows[0]);
+      } catch (err) { next(err); }
+    },
+    update: async (req, res, next) => {
+      try {
+        const { name, is_active } = req.body;
+        const { rows } = await pool.query(
+          `UPDATE ${table} SET name = $1, is_active = $2 WHERE id = $3 RETURNING id, name, is_active, created_at`,
+          [name, is_active, req.params.id]
+        );
+        if (!rows.length) return res.status(404).json({ error: notFoundMsg });
+        res.json(rows[0]);
+      } catch (err) { next(err); }
+    },
+    del: async (req, res, next) => {
+      try {
+        const { rows } = await pool.query(
+          `DELETE FROM ${table} WHERE id = $1 RETURNING id`, [req.params.id]
+        );
+        if (!rows.length) return res.status(404).json({ error: notFoundMsg });
+        res.json({ message: 'Deleted successfully' });
+      } catch (err) { next(err); }
+    },
+  };
+}
+
+const tsCrud  = makeCrud('ticket_statuses',  'Ticket status not found');
+const ttCrud  = makeCrud('ticket_types',     'Ticket type not found');
+const mtCrud  = makeCrud('management_types', 'Management type not found');
+const actCrud = makeCrud('actions',          'Action not found');
+
+router.post('/ticket-statuses',        tsCrud.create);
+router.put('/ticket-statuses/:id',     tsCrud.update);
+router.delete('/ticket-statuses/:id',  tsCrud.del);
+
+router.post('/ticket-types',           ttCrud.create);
+router.put('/ticket-types/:id',        ttCrud.update);
+router.delete('/ticket-types/:id',     ttCrud.del);
+
+router.post('/management-types',       mtCrud.create);
+router.put('/management-types/:id',    mtCrud.update);
+router.delete('/management-types/:id', mtCrud.del);
+
+router.post('/actions',                actCrud.create);
+router.put('/actions/:id',             actCrud.update);
+router.delete('/actions/:id',          actCrud.del);
+
+// ── SUB-ACTIONS ────────────────────────────────────────────────
+
+router.post('/sub-actions', async (req, res, next) => {
+  try {
+    const { action_name, name } = req.body;
+    if (!action_name || !name) return res.status(400).json({ error: 'action_name and name are required' });
+    const { rows } = await pool.query(
+      `INSERT INTO sub_actions (action_name, name) VALUES ($1, $2)
+       RETURNING id, action_name, name, is_active, created_at`,
+      [action_name, name]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+router.put('/sub-actions/:id', async (req, res, next) => {
+  try {
+    const { name, is_active } = req.body;
+    const { rows } = await pool.query(
+      `UPDATE sub_actions SET name = $1, is_active = $2 WHERE id = $3
+       RETURNING id, action_name, name, is_active, created_at`,
+      [name, is_active, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Sub-action not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+router.delete('/sub-actions/:id', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query('DELETE FROM sub_actions WHERE id = $1 RETURNING id', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Sub-action not found' });
+    res.json({ message: 'Deleted successfully' });
   } catch (err) { next(err); }
 });
 

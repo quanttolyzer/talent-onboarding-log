@@ -8,8 +8,10 @@ import StatusBadge from '../components/StatusBadge';
 import TicketModal from '../components/TicketModal';
 import CloneModal from '../components/CloneModal';
 
-const STATUSES     = ['On-hold','In-Progress','Hired','Active','Accepted','Joined','Cancelled','Rejected'];
-const TICKET_TYPES = ['Hiring Ticket','Offer Ticket','Onboarding Ticket','Offboarding'];
+// Statuses and ticket types are now dynamic — loaded from mappings.
+// These fallbacks are only used before the first API response arrives.
+const FALLBACK_STATUSES = ['On-hold','In-Progress','Hired','Active','Accepted','Joined','Cancelled','Rejected'];
+const FALLBACK_TYPES    = ['Hiring Ticket','Offer Ticket','Onboarding Ticket','Offboarding'];
 
 // FIX: sticky columns MUST have a fully opaque background — any rgba/transparent value
 // lets adjacent cell content bleed through on scroll and on row selection.
@@ -217,11 +219,15 @@ export default function DashboardPage() {
             <div style={{ display:'flex', gap:'10px', marginBottom:'10px', flexWrap:'wrap' }}>
               <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'150px' }}>
                 <option value="">All Statuses</option>
-                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                {(mappingsQuery.data?.ticket_statuses || FALLBACK_STATUSES.map(s => ({ id: s, name: s }))).map(s => (
+                  <option key={s.id || s} value={s.name || s}>{s.name || s}</option>
+                ))}
               </select>
               <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
                 <option value="">All Types</option>
-                {TICKET_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                {(mappingsQuery.data?.ticket_types || FALLBACK_TYPES.map(t => ({ id: t, name: t }))).map(t => (
+                  <option key={t.id || t} value={t.name || t}>{t.name || t}</option>
+                ))}
               </select>
               <select value={filterOwner} onChange={e => { setFilterOwner(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
                 <option value="">All Owners</option>
@@ -442,7 +448,9 @@ export default function DashboardPage() {
                               onChange={e => statusMutation.mutate({ id: ticket.id, status: e.target.value })}
                               style={{ width:'auto', minWidth:'110px', fontSize:'0.78rem', padding:'5px 8px' }}
                             >
-                              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                              {(mappingsQuery.data?.ticket_statuses || FALLBACK_STATUSES.map(s => ({ id: s, name: s }))).map(s => (
+                                <option key={s.id || s} value={s.name || s}>{s.name || s}</option>
+                              ))}
                             </select>
                             <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
                             <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
@@ -502,6 +510,7 @@ export default function DashboardPage() {
       {cloneRows && (
         <CloneModal
           rows={cloneRows}
+          mappings={mappingsQuery.data}
           onClose={() => setCloneRows(null)}
           onSaved={() => {
             qc.invalidateQueries(['tickets']);

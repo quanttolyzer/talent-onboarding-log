@@ -3,29 +3,10 @@ import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 
-const STATUSES     = ['On-hold','In-Progress','Hired','Active','Accepted','Joined','Cancelled','Rejected'];
-const TICKET_TYPES = ['Hiring Ticket','Offer Ticket','Onboarding Ticket','Offboarding'];
-const MGMT_TYPES   = ['Management','Non - Management'];
-const TASK_OWNERS  = ['Dina Atef','Abdallah Abodokhan','Habiba','Marina','Nessma Adel','Rivan Adel','Mariam Aly','Mirette Ashraf'];
-
-const SUB_ACTIONS = {
-  'Open Ticket': [
-    'Create Hiring Request','Active Hiring Tickets','Profile Screening',
-    'Interview Execution','Batch Shared with Hiring Manager','Interview Scheduled',
-    'Job Offer Created','Job Offer in the Approval Cycle','Offer Shared with candidate',
-    'Candidate Accepted Job Offer','Candidate Rejected Job Offer','Closed Hiring Ticket',
-  ],
-  'Onboarding': [
-    'E-Visa Request','E-Wakala Request','Create Contract','Contract Attestation Request',
-    'IT Request','Induction Program Preparation','Booking Accomodation',
-    'Iqama Transfer Request','Flight Ticket','Closed Onboarding Tickets',
-  ],
-};
-
 function empty() {
   return {
-    entry_date:         new Date().toISOString().slice(0,10),
-    task_owner_name:    '',
+    entry_date:         new Date().toISOString().slice(0, 10),
+    task_owner_id:      '',
     ticket_number:      '',
     ticket_type:        '',
     ticket_status:      'On-hold',
@@ -49,31 +30,27 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
   const [form, setForm] = useState(() => {
     if (isEdit && ticket) {
       return {
-        entry_date:         ticket.entry_date?.slice(0,10)  || '',
-        task_owner_name:    ticket.task_owner_name          || '',
-        ticket_number:      ticket.ticket_number            || '',
-        ticket_type:        ticket.ticket_type              || '',
-        ticket_status:      ticket.ticket_status            || 'On-hold',
-        ticket_date:        ticket.ticket_date?.slice(0,10) || '',
-        position_id:        ticket.position_id              || '',
-        management_type:    ticket.management_type          || '',
-        department_id:      ticket.department_id            || '',
-        ultimate_hm_id:     ticket.ultimate_hm_id           || '',
-        direct_hm_id:       ticket.direct_hm_id             || '',
-        country_company_id: ticket.country_company_id       || '',
-        candidate_count:    ticket.candidate_count          || 1,
-        action:             ticket.action                   || '',
-        sub_action:         ticket.sub_action               || '',
-        remarks:            ticket.remarks                  || '',
+        entry_date:         ticket.entry_date?.slice(0, 10)  || '',
+        task_owner_id:      ticket.task_owner_id              || '',
+        ticket_number:      ticket.ticket_number              || '',
+        ticket_type:        ticket.ticket_type                || '',
+        ticket_status:      ticket.ticket_status              || 'On-hold',
+        ticket_date:        ticket.ticket_date?.slice(0, 10)  || '',
+        position_id:        ticket.position_id                || '',
+        management_type:    ticket.management_type            || '',
+        department_id:      ticket.department_id              || '',
+        ultimate_hm_id:     ticket.ultimate_hm_id             || '',
+        direct_hm_id:       ticket.direct_hm_id               || '',
+        country_company_id: ticket.country_company_id         || '',
+        candidate_count:    ticket.candidate_count            || 1,
+        action:             ticket.action                     || '',
+        sub_action:         ticket.sub_action                 || '',
+        remarks:            ticket.remarks                    || '',
       };
     }
     return empty();
   });
 
-  // FIX: unified set() — action change clears sub_action in a single setState call,
-  // eliminating the double-setForm race that broke the sub-action dropdown.
-  // task_owner_name is now stored directly in form (no separate ownerName state),
-  // so it's always included in the submitted payload.
   function set(field, value) {
     if (field === 'action') {
       setForm(f => ({ ...f, action: value, sub_action: '' }));
@@ -83,13 +60,9 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
   }
 
   const mutation = useMutation({
-    mutationFn: async (data) => {
-      if (isEdit) {
-        return api.put(`/tickets/${ticket.id}`, data).then(r => r.data);
-      } else {
-        return api.post('/tickets', data).then(r => r.data);
-      }
-    },
+    mutationFn: (data) => isEdit
+      ? api.put(`/tickets/${ticket.id}`, data).then(r => r.data)
+      : api.post('/tickets', data).then(r => r.data),
     onSuccess: onSaved,
     onError: (err) => toast.error(err.response?.data?.error || 'Save failed'),
   });
@@ -97,16 +70,21 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
   function handleSubmit(e) {
     e.preventDefault();
     const payload = { ...form };
-    // Strip empty strings from optional FK fields so the backend receives null
-    ['position_id','department_id','ultimate_hm_id','direct_hm_id','country_company_id'].forEach(k => {
+    ['position_id', 'department_id', 'ultimate_hm_id', 'direct_hm_id', 'country_company_id', 'task_owner_id'].forEach(k => {
       if (!payload[k]) delete payload[k];
     });
     mutation.mutate(payload);
   }
 
-  // subActions reads from form.action — no stale closure risk
-  const subActions = SUB_ACTIONS[form.action] || [];
-  const isInline   = mode === 'add';
+  // Dynamic values from mappings — fall back to empty arrays until loaded
+  const statuses        = mappings?.ticket_statuses  || [];
+  const ticketTypes     = mappings?.ticket_types     || [];
+  const managementTypes = mappings?.management_types || [];
+  const actions         = mappings?.actions          || [];
+  const allSubActions   = mappings?.sub_actions      || [];
+  const subActions      = allSubActions.filter(s => s.action_name === form.action);
+  const users           = mappings?.users            || [];
+  const isInline        = mode === 'add';
 
   const inner = (
     <form onSubmit={handleSubmit}>
@@ -117,108 +95,90 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
         {isEdit && <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>✕ Close</button>}
       </div>
 
-      {/* Row 1 — Date, Task Owner, Ticket Number */}
+      {/* Row 1 */}
       <div className="form-grid form-grid-3" style={{ marginBottom:'18px' }}>
         <div className="form-group">
           <label>Date *</label>
-          <input type="date" required value={form.entry_date}
-            onChange={e => set('entry_date', e.target.value)} />
+          <input type="date" required value={form.entry_date} onChange={e => set('entry_date', e.target.value)} />
         </div>
         <div className="form-group">
-          <label>Task Owner *</label>
-          {/* FIX: bound to form.task_owner_name — value is included in payload */}
-          <select required value={form.task_owner_name}
-            onChange={e => set('task_owner_name', e.target.value)}>
+          <label>Task Owner</label>
+          <select value={form.task_owner_id} onChange={e => set('task_owner_id', e.target.value)}>
             <option value="">Select…</option>
-            {TASK_OWNERS.map(o => <option key={o} value={o}>{o}</option>)}
+            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Ticket Number *</label>
-          <input required value={form.ticket_number}
-            onChange={e => set('ticket_number', e.target.value)}
+          <input required value={form.ticket_number} onChange={e => set('ticket_number', e.target.value)}
             placeholder="e.g. TKT-2026-001" />
         </div>
         <div className="form-group">
           <label>Ticket Type *</label>
-          <select required value={form.ticket_type}
-            onChange={e => set('ticket_type', e.target.value)}>
+          <select required value={form.ticket_type} onChange={e => set('ticket_type', e.target.value)}>
             <option value="">Select…</option>
-            {TICKET_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            {ticketTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Ticket Status *</label>
-          <select required value={form.ticket_status}
-            onChange={e => set('ticket_status', e.target.value)}>
-            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          <select required value={form.ticket_status} onChange={e => set('ticket_status', e.target.value)}>
+            {statuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Ticket Date *</label>
-          <input type="date" required value={form.ticket_date}
-            onChange={e => set('ticket_date', e.target.value)} />
+          <input type="date" required value={form.ticket_date} onChange={e => set('ticket_date', e.target.value)} />
         </div>
       </div>
 
-      {/* Row 2 — Position, Management Type, Department, HMs, Country */}
+      {/* Row 2 */}
       <div className="form-grid form-grid-3" style={{ marginBottom:'18px' }}>
         <div className="form-group">
           <label>Position</label>
           <select value={form.position_id} onChange={e => set('position_id', e.target.value)}>
             <option value="">Select…</option>
-            {(mappings?.positions || []).map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
+            {(mappings?.positions || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Management Type *</label>
-          <select required value={form.management_type}
-            onChange={e => set('management_type', e.target.value)}>
+          <select required value={form.management_type} onChange={e => set('management_type', e.target.value)}>
             <option value="">Select…</option>
-            {MGMT_TYPES.map(m => <option key={m} value={m}>{m}</option>)}
+            {managementTypes.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Department</label>
           <select value={form.department_id} onChange={e => set('department_id', e.target.value)}>
             <option value="">Select…</option>
-            {(mappings?.departments || []).map(d => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
+            {(mappings?.departments || []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Ultimate Hiring Manager</label>
           <select value={form.ultimate_hm_id} onChange={e => set('ultimate_hm_id', e.target.value)}>
             <option value="">Select…</option>
-            {(mappings?.hiring_managers || []).map(h => (
-              <option key={h.id} value={h.id}>{h.name}</option>
-            ))}
+            {(mappings?.hiring_managers || []).map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Direct Hiring Manager</label>
           <select value={form.direct_hm_id} onChange={e => set('direct_hm_id', e.target.value)}>
             <option value="">Select…</option>
-            {(mappings?.hiring_managers || []).map(h => (
-              <option key={h.id} value={h.id}>{h.name}</option>
-            ))}
+            {(mappings?.hiring_managers || []).map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Country &amp; Company</label>
           <select value={form.country_company_id} onChange={e => set('country_company_id', e.target.value)}>
             <option value="">Select…</option>
-            {(mappings?.country_companies || []).map(c => (
-              <option key={c.id} value={c.id}>{c.label}</option>
-            ))}
+            {(mappings?.country_companies || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
       </div>
 
-      {/* Row 3 — Candidates, Action, Sub-Action, Remarks */}
+      {/* Row 3 */}
       <div className="form-grid form-grid-3" style={{ marginBottom:'24px' }}>
         <div className="form-group">
           <label>Number of Candidates *</label>
@@ -229,27 +189,20 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
           <label>Action *</label>
           <select required value={form.action} onChange={e => set('action', e.target.value)}>
             <option value="">Select…</option>
-            <option value="Open Ticket">Open Ticket</option>
-            <option value="Onboarding">Onboarding</option>
+            {actions.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Sub-Action *</label>
-          {/* FIX: subActions is derived from form.action inside render — always in sync */}
-          <select
-            required
-            value={form.sub_action}
-            onChange={e => set('sub_action', e.target.value)}
-            disabled={!form.action}
-          >
+          <select required value={form.sub_action} onChange={e => set('sub_action', e.target.value)}
+            disabled={!form.action}>
             <option value="">Select…</option>
-            {subActions.map(s => <option key={s} value={s}>{s}</option>)}
+            {subActions.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
           </select>
         </div>
         <div className="form-group" style={{ gridColumn: isInline ? 'span 3' : undefined }}>
           <label>Remarks</label>
-          <input value={form.remarks} onChange={e => set('remarks', e.target.value)}
-            placeholder="Optional notes…" />
+          <input value={form.remarks} onChange={e => set('remarks', e.target.value)} placeholder="Optional notes…" />
         </div>
       </div>
 
@@ -264,14 +217,11 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
       )}
 
       <div style={{ display:'flex', gap:'10px', justifyContent:'flex-end' }}>
-        {isEdit && (
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        )}
-        <button type="submit" className="btn btn-success" disabled={mutation.isLoading}>
-          {mutation.isLoading
-            ? <><span className="spinner" style={{width:16,height:16}} /> Saving…</>
-            : isEdit ? '💾 Save Changes' : '➕ Add Entry'
-          }
+        {isEdit && <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>}
+        <button type="submit" className="btn btn-success" disabled={mutation.isPending || mutation.isLoading}>
+          {(mutation.isPending || mutation.isLoading)
+            ? <><span className="spinner" style={{ width:16, height:16 }} /> Saving…</>
+            : isEdit ? '💾 Save Changes' : '➕ Add Entry'}
         </button>
       </div>
     </form>
