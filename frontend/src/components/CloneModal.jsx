@@ -20,12 +20,19 @@ const SUB_ACTIONS = {
 };
 
 export default function CloneModal({ rows, onClose, onSaved }) {
+  // Pre-populate action from source rows when all share the same action so the
+  // sub-action dropdown is immediately enabled — user no longer has to pick action
+  // first before sub-action options appear.
+  const commonAction = rows.length > 0 && rows.every(r => r.action === rows[0].action)
+    ? (rows[0].action || '')
+    : '';
+
   const [overrides, setOverrides] = useState({
     entry_date:      new Date().toISOString().slice(0,10),
     ticket_number:   '',
     ticket_type:     '',
     candidate_count: '',
-    action:          '',
+    action:          commonAction,
     sub_action:      '',
     remarks:         '',
   });

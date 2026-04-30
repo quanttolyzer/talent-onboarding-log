@@ -26,6 +26,10 @@
   --transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
   --font: 'Sora', sans-serif;
   --mono: 'JetBrains Mono', monospace;
+
+  /* Solid opaque background for sticky cells in a selected row.
+     Must be opaque so scrolled content doesn't bleed through. */
+  --bg-selected: #1f2235;
 }
 
 html { font-size: 15px; }

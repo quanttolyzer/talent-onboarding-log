@@ -39,3 +39,5 @@ desktop.ini
 
 # Render / deployment
 .render/
+# Added by code-review-graph
+.code-review-graph/

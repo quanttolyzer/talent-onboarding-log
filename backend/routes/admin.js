@@ -120,24 +120,21 @@ router.delete('/users/:id', async (req, res, next) => {
 // ── DYNAMIC DROPDOWNS MANAGEMENT ──────────────────────────────
 
 // GET /api/v1/admin/dropdowns
-// FIX: response keys are now snake_case to match what every frontend
-// component expects (mappings?.hiring_managers, mappings?.country_companies).
-// Previously the keys were camelCase (hiringManagers / countryCompanies),
-// which caused those dropdowns to always render empty.
 router.get('/dropdowns', async (req, res, next) => {
   try {
     const [positions, departments, hiringManagers, countryCompanies] = await Promise.all([
-      pool.query('SELECT * FROM positions ORDER BY name'),
-      pool.query('SELECT * FROM departments ORDER BY name'),
-      pool.query('SELECT * FROM hiring_managers ORDER BY name'),
-      pool.query('SELECT * FROM country_companies ORDER BY label'),
+      pool.query('SELECT id, name, is_active, created_at FROM positions ORDER BY name'),
+      pool.query('SELECT id, name, is_active, created_at FROM departments ORDER BY name'),
+      pool.query('SELECT id, name, is_active, created_at FROM hiring_managers ORDER BY name'),
+      // Normalize label → name so DropdownManagement can use a single "name" field for all sections
+      pool.query('SELECT id, label AS name, is_active, created_at FROM country_companies ORDER BY label'),
     ]);
 
     res.json({
-      positions:        positions.rows,
-      departments:      departments.rows,
-      hiring_managers:  hiringManagers.rows,    // FIX: was 'hiringManagers'
-      country_companies: countryCompanies.rows, // FIX: was 'countryCompanies'
+      positions:         positions.rows,
+      departments:       departments.rows,
+      hiring_managers:   hiringManagers.rows,
+      country_companies: countryCompanies.rows,
     });
   } catch (err) { next(err); }
 });
@@ -221,6 +218,88 @@ router.delete('/departments/:id', async (req, res, next) => {
 
     if (rows.length === 0) return res.status(404).json({ error: 'Department not found' });
     res.json({ message: 'Department deleted successfully' });
+  } catch (err) { next(err); }
+});
+
+// ── HIRING MANAGERS ────────────────────────────────────────────
+
+// POST /api/v1/admin/hiring-managers
+router.post('/hiring-managers', async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const { rows } = await pool.query(
+      'INSERT INTO hiring_managers (name) VALUES ($1) RETURNING id, name, is_active, created_at',
+      [name]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// PUT /api/v1/admin/hiring-managers/:id
+router.put('/hiring-managers/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, is_active } = req.body;
+    const { rows } = await pool.query(
+      'UPDATE hiring_managers SET name = $1, is_active = $2 WHERE id = $3 RETURNING id, name, is_active, created_at',
+      [name, is_active, id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Hiring manager not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/v1/admin/hiring-managers/:id
+router.delete('/hiring-managers/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      'DELETE FROM hiring_managers WHERE id = $1 RETURNING *', [id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Hiring manager not found' });
+    res.json({ message: 'Hiring manager deleted successfully' });
+  } catch (err) { next(err); }
+});
+
+// ── COUNTRY / COMPANIES ────────────────────────────────────────
+
+// POST /api/v1/admin/country-companies
+router.post('/country-companies', async (req, res, next) => {
+  try {
+    const { name } = req.body;  // frontend sends "name"; store as label
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const { rows } = await pool.query(
+      'INSERT INTO country_companies (label) VALUES ($1) RETURNING id, label AS name, is_active, created_at',
+      [name]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// PUT /api/v1/admin/country-companies/:id
+router.put('/country-companies/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, is_active } = req.body;
+    const { rows } = await pool.query(
+      'UPDATE country_companies SET label = $1, is_active = $2 WHERE id = $3 RETURNING id, label AS name, is_active, created_at',
+      [name, is_active, id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Country/company not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/v1/admin/country-companies/:id
+router.delete('/country-companies/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      'DELETE FROM country_companies WHERE id = $1 RETURNING *', [id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Country/company not found' });
+    res.json({ message: 'Country/company deleted successfully' });
   } catch (err) { next(err); }
 });
 
