@@ -20,7 +20,6 @@ const SUB_ACTIONS = {
 };
 
 export default function CloneModal({ rows, onClose, onSaved }) {
-  // Only editable fields — locked fields keep original values
   const [overrides, setOverrides] = useState({
     entry_date:      new Date().toISOString().slice(0,10),
     ticket_number:   '',
@@ -42,8 +41,18 @@ export default function CloneModal({ rows, onClose, onSaved }) {
     onError: (err) => toast.error(err.response?.data?.error || 'Clone failed'),
   });
 
-  function set(k, v) { setOverrides(o => ({ ...o, [k]: v })); }
+  // FIX: action change is now atomic — clears sub_action in the same setState call,
+  // eliminating the double-set race condition that caused the sub-action dropdown
+  // to show no options after selecting an action.
+  function set(k, v) {
+    if (k === 'action') {
+      setOverrides(o => ({ ...o, action: v, sub_action: '' }));
+    } else {
+      setOverrides(o => ({ ...o, [k]: v }));
+    }
+  }
 
+  // subActions is derived from overrides.action on every render — always in sync
   const subActions = SUB_ACTIONS[overrides.action] || [];
 
   return (
@@ -62,7 +71,7 @@ export default function CloneModal({ rows, onClose, onSaved }) {
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
 
-        {/* Locked field preview — includes ticket_date */}
+        {/* Locked field preview */}
         <div style={{
           background:'rgba(255,255,255,0.03)',
           border:'1px solid var(--border)',
@@ -76,7 +85,6 @@ export default function CloneModal({ rows, onClose, onSaved }) {
           </div>
           {rows.length === 1 ? (
             <div style={{ display:'flex', flexWrap:'wrap', gap:'12px', color:'var(--text-2)' }}>
-              {/* FIX: ticket_date now shown here alongside the other locked fields */}
               <span>📅 Ticket Date: <strong>{rows[0].ticket_date?.slice(0,10) || '—'}</strong></span>
               <span>📌 {rows[0].position_name || '—'}</span>
               <span>🏢 {rows[0].department_name || '—'}</span>
@@ -130,23 +138,30 @@ export default function CloneModal({ rows, onClose, onSaved }) {
               onChange={e => set('candidate_count', e.target.value)}
               placeholder="Keep original" />
           </div>
+
           <div className="form-group">
             <label>Action (override)</label>
-            <select value={overrides.action}
-              onChange={e => { set('action', e.target.value); set('sub_action', ''); }}>
+            {/* FIX: single set('action') call — atomic clear of sub_action handled inside set() */}
+            <select value={overrides.action} onChange={e => set('action', e.target.value)}>
               <option value="">Keep original</option>
               <option value="Open Ticket">Open Ticket</option>
               <option value="Onboarding">Onboarding</option>
             </select>
           </div>
+
           <div className="form-group">
             <label>Sub-Action (override)</label>
-            <select value={overrides.sub_action} onChange={e => set('sub_action', e.target.value)}
-              disabled={!overrides.action}>
+            {/* FIX: disabled only when no action selected; subActions always in sync with overrides.action */}
+            <select
+              value={overrides.sub_action}
+              onChange={e => set('sub_action', e.target.value)}
+              disabled={!overrides.action}
+            >
               <option value="">Keep original</option>
               {subActions.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+
           <div className="form-group" style={{ gridColumn:'span 2' }}>
             <label>Remarks (override)</label>
             <input value={overrides.remarks} onChange={e => set('remarks', e.target.value)}

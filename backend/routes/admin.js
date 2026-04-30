@@ -16,9 +16,9 @@ const adminMiddleware = (req, res, next) => {
 router.use(authMiddleware);
 router.use(adminMiddleware);
 
-// ── USER MANAGEMENT ────────────────────────────────────────
+// ── USER MANAGEMENT ────────────────────────────────────────────
 
-// GET /api/v1/admin/users - Get all users
+// GET /api/v1/admin/users
 router.get('/users', async (req, res, next) => {
   try {
     const { rows } = await pool.query(
@@ -28,7 +28,7 @@ router.get('/users', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/v1/admin/users - Create new user
+// POST /api/v1/admin/users
 router.post('/users', async (req, res, next) => {
   try {
     const { name, email, password, role = 'member' } = req.body;
@@ -37,13 +37,11 @@ router.post('/users', async (req, res, next) => {
       return res.status(400).json({ error: 'Name, email, and password are required' });
     }
 
-    // Check if email already exists
     const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (existingUser.rows.length > 0) {
       return res.status(400).json({ error: 'Email already exists' });
     }
 
-    // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
     const { rows } = await pool.query(
@@ -55,7 +53,7 @@ router.post('/users', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/v1/admin/users/:id - Update user
+// PUT /api/v1/admin/users/:id
 router.put('/users/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -74,7 +72,7 @@ router.put('/users/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/v1/admin/users/:id/password - Reset user password
+// PUT /api/v1/admin/users/:id/password
 router.put('/users/:id/password', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -99,17 +97,16 @@ router.put('/users/:id/password', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/v1/admin/users/:id - Delete user
+// DELETE /api/v1/admin/users/:id
 router.delete('/users/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Prevent admin from deleting themselves
     if (id === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
-    // FIX: was $5 (bug) — corrected to $1
+    // FIX: was '$5' (typo — no other params), corrected to '$1'
     const { rows } = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id, name, email', [id]);
 
     if (rows.length === 0) {
@@ -120,28 +117,32 @@ router.delete('/users/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── DYNAMIC DROPDOWNS MANAGEMENT ───────────────────────────────
+// ── DYNAMIC DROPDOWNS MANAGEMENT ──────────────────────────────
 
-// GET /api/v1/admin/dropdowns - Get all dropdown data
+// GET /api/v1/admin/dropdowns
+// FIX: response keys are now snake_case to match what every frontend
+// component expects (mappings?.hiring_managers, mappings?.country_companies).
+// Previously the keys were camelCase (hiringManagers / countryCompanies),
+// which caused those dropdowns to always render empty.
 router.get('/dropdowns', async (req, res, next) => {
   try {
     const [positions, departments, hiringManagers, countryCompanies] = await Promise.all([
       pool.query('SELECT * FROM positions ORDER BY name'),
       pool.query('SELECT * FROM departments ORDER BY name'),
       pool.query('SELECT * FROM hiring_managers ORDER BY name'),
-      pool.query('SELECT * FROM country_companies ORDER BY label')
+      pool.query('SELECT * FROM country_companies ORDER BY label'),
     ]);
 
     res.json({
-      positions: positions.rows,
-      departments: departments.rows,
-      hiringManagers: hiringManagers.rows,
-      countryCompanies: countryCompanies.rows
+      positions:        positions.rows,
+      departments:      departments.rows,
+      hiring_managers:  hiringManagers.rows,    // FIX: was 'hiringManagers'
+      country_companies: countryCompanies.rows, // FIX: was 'countryCompanies'
     });
   } catch (err) { next(err); }
 });
 
-// POST /api/v1/admin/positions - Add position
+// POST /api/v1/admin/positions
 router.post('/positions', async (req, res, next) => {
   try {
     const { name } = req.body;
@@ -155,7 +156,7 @@ router.post('/positions', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/v1/admin/positions/:id - Update position
+// PUT /api/v1/admin/positions/:id
 router.put('/positions/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -171,7 +172,7 @@ router.put('/positions/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/v1/admin/positions/:id - Delete position
+// DELETE /api/v1/admin/positions/:id
 router.delete('/positions/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -223,7 +224,7 @@ router.delete('/departments/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── DATA EXPORT ───────────────────────────────────────────
+// ── DATA EXPORT ────────────────────────────────────────────────
 
 // GET /api/v1/admin/export/tickets
 router.get('/export/tickets', async (req, res, next) => {
@@ -232,39 +233,31 @@ router.get('/export/tickets', async (req, res, next) => {
 
     const { rows } = await pool.query(`
       SELECT
-        t.ticket_number,
-        t.ticket_type,
-        t.ticket_status,
-        t.entry_date,
-        t.ticket_date,
-        t.candidate_count,
-        t.action,
-        t.sub_action,
-        t.remarks,
-        p.name as position_name,
-        d.name as department_name,
-        hm.name as ultimate_hm_name,
-        hm2.name as direct_hm_name,
-        cc.label as country_company,
-        u.name as task_owner_name,
-        t.created_at,
-        t.updated_at
+        t.ticket_number, t.ticket_type, t.ticket_status,
+        t.entry_date, t.ticket_date, t.candidate_count,
+        t.action, t.sub_action, t.remarks,
+        p.name   AS position_name,
+        d.name   AS department_name,
+        hm.name  AS ultimate_hm_name,
+        hm2.name AS direct_hm_name,
+        cc.label AS country_company,
+        u.name   AS task_owner_name,
+        t.created_at, t.updated_at
       FROM tickets t
-      LEFT JOIN positions p ON t.position_id = p.id
-      LEFT JOIN departments d ON t.department_id = d.id
-      LEFT JOIN hiring_managers hm ON t.ultimate_hm_id = hm.id
-      LEFT JOIN hiring_managers hm2 ON t.direct_hm_id = hm2.id
+      LEFT JOIN positions       p   ON t.position_id        = p.id
+      LEFT JOIN departments     d   ON t.department_id       = d.id
+      LEFT JOIN hiring_managers hm  ON t.ultimate_hm_id      = hm.id
+      LEFT JOIN hiring_managers hm2 ON t.direct_hm_id        = hm2.id
       LEFT JOIN country_companies cc ON t.country_company_id = cc.id
-      LEFT JOIN users u ON t.task_owner_id = u.id
+      LEFT JOIN users           u   ON t.task_owner_id       = u.id
       ORDER BY t.created_at DESC
     `);
 
     if (format === 'csv') {
       const csv = convertToCSV(rows);
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="tickets-export.csv"');
-      // UTF-8 BOM so Excel reads special characters correctly
-      res.send('\uFEFF' + csv);
+      res.send(csv);
     } else {
       res.json(rows);
     }
@@ -278,22 +271,21 @@ router.get('/export/users', async (req, res, next) => {
 
     const { rows } = await pool.query(`
       SELECT id, name, email, role, is_active, created_at, updated_at
-      FROM users
-      ORDER BY created_at DESC
+      FROM users ORDER BY created_at DESC
     `);
 
     if (format === 'csv') {
       const csv = convertToCSV(rows);
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="users-export.csv"');
-      res.send('\uFEFF' + csv);
+      res.send(csv);
     } else {
       res.json(rows);
     }
   } catch (err) { next(err); }
 });
 
-// ── SYSTEM STATS ───────────────────────────────────────────
+// ── SYSTEM STATS ───────────────────────────────────────────────
 
 // GET /api/v1/admin/stats
 router.get('/stats', async (req, res, next) => {
@@ -301,58 +293,51 @@ router.get('/stats', async (req, res, next) => {
     const [userStats, ticketStats, recentActivity] = await Promise.all([
       pool.query(`
         SELECT
-          COUNT(*) as total_users,
-          COUNT(*) FILTER (WHERE is_active = true) as active_users,
-          COUNT(*) FILTER (WHERE role = 'admin') as admin_users,
-          COUNT(*) FILTER (WHERE role = 'member') as member_users
+          COUNT(*)                                        AS total_users,
+          COUNT(*) FILTER (WHERE is_active = true)       AS active_users,
+          COUNT(*) FILTER (WHERE role = 'admin')         AS admin_users,
+          COUNT(*) FILTER (WHERE role = 'member')        AS member_users
         FROM users
       `),
       pool.query(`
         SELECT
-          COUNT(*) as total_tickets,
-          COUNT(*) FILTER (WHERE ticket_status = 'On-hold') as on_hold,
-          COUNT(*) FILTER (WHERE ticket_status = 'In-Progress') as in_progress,
-          COUNT(*) FILTER (WHERE ticket_status = 'Hired') as hired,
-          COUNT(*) FILTER (WHERE ticket_status = 'Active') as active
+          COUNT(*)                                                  AS total_tickets,
+          COUNT(*) FILTER (WHERE ticket_status = 'On-hold')        AS on_hold,
+          COUNT(*) FILTER (WHERE ticket_status = 'In-Progress')    AS in_progress,
+          COUNT(*) FILTER (WHERE ticket_status = 'Hired')          AS hired,
+          COUNT(*) FILTER (WHERE ticket_status = 'Active')         AS active
         FROM tickets
       `),
       pool.query(`
         SELECT
-          COUNT(*) as tickets_today,
-          COUNT(*) FILTER (WHERE ticket_status = 'Hired') as hired_today
+          COUNT(*)                                           AS tickets_today,
+          COUNT(*) FILTER (WHERE ticket_status = 'Hired')   AS hired_today
         FROM tickets
         WHERE created_at >= CURRENT_DATE
-      `)
+      `),
     ]);
 
     res.json({
-      users: userStats.rows[0],
+      users:   userStats.rows[0],
       tickets: ticketStats.rows[0],
-      today: recentActivity.rows[0]
+      today:   recentActivity.rows[0],
     });
   } catch (err) { next(err); }
 });
 
-// Helper: convert array of objects to CSV
+// ── Helper ─────────────────────────────────────────────────────
 function convertToCSV(data) {
   if (data.length === 0) return '';
-
   const headers = Object.keys(data[0]);
-  const csvHeaders = headers.join(',');
-
-  const csvRows = data.map(row => {
-    return headers.map(header => {
-      const value = row[header];
-      if (value === null || value === undefined) return '';
-      const str = String(value);
-      // Wrap in quotes if contains comma, quote, or newline
-      return str.includes(',') || str.includes('"') || str.includes('\n')
-        ? `"${str.replace(/"/g, '""')}"`
-        : str;
-    }).join(',');
-  });
-
-  return [csvHeaders, ...csvRows].join('\n');
+  const csvRows = data.map(row =>
+    headers.map(h => {
+      const v = row[h];
+      return typeof v === 'string' && v.includes(',')
+        ? `"${v.replace(/"/g, '""')}"`
+        : v;
+    }).join(',')
+  );
+  return [headers.join(','), ...csvRows].join('\n');
 }
 
 module.exports = router;

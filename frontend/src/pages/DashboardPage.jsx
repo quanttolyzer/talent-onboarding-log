@@ -11,31 +11,42 @@ import CloneModal from '../components/CloneModal';
 const STATUSES     = ['On-hold','In-Progress','Hired','Active','Accepted','Joined','Cancelled','Rejected'];
 const TICKET_TYPES = ['Hiring Ticket','Offer Ticket','Onboarding Ticket','Offboarding'];
 
+// FIX: sticky columns MUST have a fully opaque background — any rgba/transparent value
+// lets adjacent cell content bleed through on scroll and on row selection.
+// These helpers return solid background colors for the two sticky columns.
+function stickyBg(isSelected) {
+  // Use CSS vars so the colour still tracks the theme.
+  // --bg-selected should be defined in your global CSS (see note below).
+  // If it isn't, the fallback keeps the surface colour and relies on a
+  // border-left / border-right to signal selection instead.
+  return isSelected ? 'var(--bg-selected, var(--bg-surface))' : 'var(--bg-surface)';
+}
+
 export default function DashboardPage() {
   const user   = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const qc     = useQueryClient();
 
-  // ── Tab ───────────────────────────────────────────────────
+  // ── Tab ─────────────────────────────────────────────────────
   const [tab, setTab] = useState('search');
 
-  // ── Filters ───────────────────────────────────────────────
+  // ── Filters ─────────────────────────────────────────────────
   const [search,         setSearch]         = useState('');
   const [filterStatus,   setFilterStatus]   = useState('');
   const [filterType,     setFilterType]     = useState('');
   const [filterOwner,    setFilterOwner]    = useState('');
-  const [filterDept,     setFilterDept]     = useState('');      // NEW
-  const [filterPosition, setFilterPosition] = useState('');     // NEW
-  const [filterCountry,  setFilterCountry]  = useState('');     // NEW
+  const [filterDept,     setFilterDept]     = useState('');
+  const [filterPosition, setFilterPosition] = useState('');
+  const [filterCountry,  setFilterCountry]  = useState('');
   const [page,           setPage]           = useState(1);
   const LIMIT = 100;
 
-  // ── Selection ─────────────────────────────────────────────
+  // ── Selection ────────────────────────────────────────────────
   const [selected,   setSelected]   = useState(new Set());
   const [editTicket, setEditTicket] = useState(null);
   const [cloneRows,  setCloneRows]  = useState(null);
 
-  // ── Debounced search ──────────────────────────────────────
+  // ── Debounced search ─────────────────────────────────────────
   const searchTimer = useRef(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   function handleSearchChange(e) {
@@ -47,9 +58,8 @@ export default function DashboardPage() {
     }, 300);
   }
 
-  // ── Queries ───────────────────────────────────────────────
+  // ── Queries ──────────────────────────────────────────────────
   const ticketsQuery = useQuery({
-    // NEW: filterDept, filterPosition, filterCountry added to queryKey
     queryKey: ['tickets', page, debouncedSearch, filterStatus, filterType, filterOwner, filterDept, filterPosition, filterCountry],
     queryFn: () => api.get('/tickets', {
       params: {
@@ -59,9 +69,9 @@ export default function DashboardPage() {
         status:             filterStatus     || undefined,
         ticket_type:        filterType       || undefined,
         task_owner_id:      filterOwner      || undefined,
-        department_id:      filterDept       || undefined,   // NEW
-        position_id:        filterPosition   || undefined,   // NEW
-        country_company_id: filterCountry    || undefined,   // NEW
+        department_id:      filterDept       || undefined,
+        position_id:        filterPosition   || undefined,
+        country_company_id: filterCountry    || undefined,
       },
     }).then(r => r.data),
     keepPreviousData: true,
@@ -79,7 +89,7 @@ export default function DashboardPage() {
     staleTime: 5 * 60_000,
   });
 
-  // ── Mutations ─────────────────────────────────────────────
+  // ── Mutations ────────────────────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: (ids) => ids.length === 1
       ? api.delete(`/tickets/${ids[0]}`)
@@ -101,7 +111,7 @@ export default function DashboardPage() {
     onError: (err) => toast.error(err.response?.data?.error || 'Update failed'),
   });
 
-  // ── Helpers ───────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────
   const tickets = ticketsQuery.data?.data  || [];
   const total   = ticketsQuery.data?.total || 0;
   const pages   = ticketsQuery.data?.pages || 1;
@@ -122,7 +132,7 @@ export default function DashboardPage() {
   function clearFilters() {
     setSearch(''); setDebouncedSearch('');
     setFilterStatus(''); setFilterType(''); setFilterOwner('');
-    setFilterDept(''); setFilterPosition(''); setFilterCountry(''); // NEW
+    setFilterDept(''); setFilterPosition(''); setFilterCountry('');
     setPage(1);
   }
   const selectedTickets = useMemo(
@@ -157,7 +167,6 @@ export default function DashboardPage() {
           <span style={{ fontWeight:800, fontSize:'1rem' }}>Talent & Onboarding</span>
         </div>
         <span style={{ fontSize:'0.8rem', color:'var(--text-2)' }}>{user?.name}</span>
-        {/* FIX: removed debug console.log IIFE — clean conditional render */}
         {user?.role === 'admin' && (
           <Link
             to="/admin"
@@ -204,18 +213,16 @@ export default function DashboardPage() {
               <button className="btn btn-ghost btn-sm" onClick={clearFilters}>Clear all</button>
             </div>
 
-            {/* Filter row — Row 1: Status, Type, Owner */}
+            {/* Filter row 1: Status, Type, Owner */}
             <div style={{ display:'flex', gap:'10px', marginBottom:'10px', flexWrap:'wrap' }}>
               <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'150px' }}>
                 <option value="">All Statuses</option>
                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-
               <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
                 <option value="">All Types</option>
                 {TICKET_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
-
               <select value={filterOwner} onChange={e => { setFilterOwner(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
                 <option value="">All Owners</option>
                 {(filterOptionsQuery.data?.owners || []).map(o => (
@@ -224,25 +231,20 @@ export default function DashboardPage() {
               </select>
             </div>
 
-            {/* Filter row — Row 2: Department, Position, Country & Company + bulk actions */}
+            {/* Filter row 2: Department, Position, Country & bulk actions */}
             <div style={{ display:'flex', gap:'10px', marginBottom:'16px', flexWrap:'wrap' }}>
-              {/* NEW: Department filter */}
               <select value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
                 <option value="">All Departments</option>
                 {(mappingsQuery.data?.departments || []).map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
-
-              {/* NEW: Position filter */}
               <select value={filterPosition} onChange={e => { setFilterPosition(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
                 <option value="">All Positions</option>
                 {(mappingsQuery.data?.positions || []).map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-
-              {/* NEW: Country & Company filter */}
               <select value={filterCountry} onChange={e => { setFilterCountry(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'180px' }}>
                 <option value="">All Countries & Companies</option>
                 {(mappingsQuery.data?.country_companies || []).map(c => (
@@ -287,6 +289,7 @@ export default function DashboardPage() {
               <table className="data-table" style={{ minWidth: '1800px' }}>
                 <thead>
                   <tr>
+                    {/* FIX: thead sticky checkbox cell — always opaque */}
                     <th style={{ width:'36px', position:'sticky', left:0, zIndex:6, background:'var(--bg)' }}>
                       <input
                         type="checkbox"
@@ -312,6 +315,7 @@ export default function DashboardPage() {
                     <th>Sub-Action</th>
                     <th>Remarks</th>
                     <th>Group</th>
+                    {/* FIX: thead sticky actions cell — always opaque */}
                     <th style={{ position:'sticky', right:0, zIndex:6, background:'var(--bg)' }}>Actions</th>
                   </tr>
                 </thead>
@@ -330,95 +334,124 @@ export default function DashboardPage() {
                       </td>
                     </tr>
                   )}
-                  {tickets.map(ticket => (
-                    <tr key={ticket.id} className={selected.has(ticket.id) ? 'selected' : ''}>
+                  {tickets.map(ticket => {
+                    const isSelected = selected.has(ticket.id);
+                    return (
+                      <tr key={ticket.id} className={isSelected ? 'selected' : ''}>
 
-                      <td style={{ position:'sticky', left:0, background: selected.has(ticket.id) ? 'rgba(99,102,241,0.08)' : 'var(--bg-surface)', zIndex:4 }}>
-                        <input type="checkbox" checked={selected.has(ticket.id)}
-                          onChange={() => toggleSelect(ticket.id)} style={{ width:'auto' }} />
-                      </td>
+                        {/*
+                          FIX: Sticky cells MUST use a fully opaque background.
+                          Previously rgba(99,102,241,0.08) was transparent, which let
+                          scrolled content from other columns bleed through the cell.
+                          stickyBg() returns var(--bg-surface) always, with
+                          var(--bg-selected) override when the row is selected.
+                          Add --bg-selected to your global CSS, e.g.:
+                            --bg-selected: #1e2035;   (dark theme)
+                          The left/right border provides the visual selection cue
+                          on the sticky cells themselves.
+                        */}
+                        <td style={{
+                          position: 'sticky',
+                          left: 0,
+                          background: stickyBg(isSelected),
+                          zIndex: 4,
+                          borderLeft: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
+                          transition: 'border-color 0.15s',
+                        }}>
+                          <input type="checkbox" checked={isSelected}
+                            onChange={() => toggleSelect(ticket.id)} style={{ width:'auto' }} />
+                        </td>
 
-                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
-                        {ticket.entry_date?.slice(0,10) || '—'}
-                      </td>
+                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
+                          {ticket.entry_date?.slice(0,10) || '—'}
+                        </td>
 
-                      <td style={{ whiteSpace:'nowrap' }}>{ticket.task_owner_name || '—'}</td>
+                        <td style={{ whiteSpace:'nowrap' }}>{ticket.task_owner_name || '—'}</td>
 
-                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', color:'var(--primary)', whiteSpace:'nowrap' }}>
-                        {ticket.ticket_number}
-                      </td>
+                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', color:'var(--primary)', whiteSpace:'nowrap' }}>
+                          {ticket.ticket_number}
+                        </td>
 
-                      <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.ticket_type}</td>
+                        <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.ticket_type}</td>
 
-                      <td style={{ whiteSpace:'nowrap' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                          <StatusBadge status={ticket.ticket_status} />
-                          {ticket.is_group_master && (
-                            <span title="Group master — controls status for all cloned rows" style={{ fontSize:'12px', cursor:'help' }}>⭐</span>
-                          )}
-                        </div>
-                      </td>
+                        <td style={{ whiteSpace:'nowrap' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                            <StatusBadge status={ticket.ticket_status} />
+                            {ticket.is_group_master && (
+                              <span title="Group master — controls status for all cloned rows" style={{ fontSize:'12px', cursor:'help' }}>⭐</span>
+                            )}
+                          </div>
+                        </td>
 
-                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
-                        {ticket.ticket_date?.slice(0,10) || '—'}
-                      </td>
+                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
+                          {ticket.ticket_date?.slice(0,10) || '—'}
+                        </td>
 
-                      <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        {ticket.position_name || '—'}
-                      </td>
+                        <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {ticket.position_name || '—'}
+                        </td>
 
-                      <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>
-                        {ticket.management_type || '—'}
-                      </td>
+                        <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>
+                          {ticket.management_type || '—'}
+                        </td>
 
-                      <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        {ticket.department_name || '—'}
-                      </td>
+                        <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {ticket.department_name || '—'}
+                        </td>
 
-                      <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        {ticket.ultimate_hm_name || '—'}
-                      </td>
+                        <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {ticket.ultimate_hm_name || '—'}
+                        </td>
 
-                      <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        {ticket.direct_hm_name || '—'}
-                      </td>
+                        <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {ticket.direct_hm_name || '—'}
+                        </td>
 
-                      <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        {ticket.country_company_label || '—'}
-                      </td>
+                        <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {ticket.country_company_label || '—'}
+                        </td>
 
-                      <td style={{ textAlign:'center' }}>{ticket.candidate_count}</td>
+                        <td style={{ textAlign:'center' }}>{ticket.candidate_count}</td>
 
-                      <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.action}</td>
+                        <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.action}</td>
 
-                      <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        {ticket.sub_action || '—'}
-                      </td>
+                        <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {ticket.sub_action || '—'}
+                        </td>
 
-                      <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        {ticket.remarks || '—'}
-                      </td>
+                        <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {ticket.remarks || '—'}
+                        </td>
 
-                      <td style={{ fontFamily:'var(--mono)', fontSize:'0.75rem', color:'var(--text-3)', whiteSpace:'nowrap' }}>
-                        {ticket.group_code || '—'}
-                      </td>
+                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.75rem', color:'var(--text-3)', whiteSpace:'nowrap' }}>
+                          {ticket.group_code || '—'}
+                        </td>
 
-                      <td style={{ position:'sticky', right:0, background: selected.has(ticket.id) ? 'rgba(99,102,241,0.08)' : 'var(--bg-surface)', zIndex:4 }}>
-                        <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
-                          <select
-                            value={ticket.ticket_status}
-                            onChange={e => statusMutation.mutate({ id: ticket.id, status: e.target.value })}
-                            style={{ width:'auto', minWidth:'110px', fontSize:'0.78rem', padding:'5px 8px' }}
-                          >
-                            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                          <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
-                          <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
-                        </div>
-                      </td>
+                        {/* FIX: Actions sticky cell — always opaque background, right border for selection cue */}
+                        <td style={{
+                          position: 'sticky',
+                          right: 0,
+                          background: stickyBg(isSelected),
+                          zIndex: 4,
+                          borderRight: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
+                          transition: 'border-color 0.15s',
+                        }}>
+                          <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
+                            <select
+                              value={ticket.ticket_status}
+                              onChange={e => statusMutation.mutate({ id: ticket.id, status: e.target.value })}
+                              style={{ width:'auto', minWidth:'110px', fontSize:'0.78rem', padding:'5px 8px' }}
+                            >
+                              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
+                            <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
+                          </div>
+                        </td>
 
-                    </tr>
-                  ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
