@@ -453,33 +453,22 @@ export default function DashboardPage() {
                           transition: 'border-color 0.15s',
                         }}>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            {isAdmin ? (
+                            <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">📝</button>
+                            {isAdmin && (
                               <>
-                                <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">📝</button>
                                 <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
                                 <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
-                                {ticket.position_id && (
-                                  <Link
-                                    to={`/positions/${ticket.position_id}`}
-                                    className="btn btn-ghost btn-xs"
-                                    title="Open Board"
-                                    style={{ textDecoration: 'none' }}
-                                  >
-                                    📋
-                                  </Link>
-                                )}
                               </>
-                            ) : (
-                              ticket.position_id && (
-                                <Link
-                                  to={`/positions/${ticket.position_id}`}
-                                  className="btn btn-ghost btn-xs"
-                                  title="Open Board"
-                                  style={{ textDecoration: 'none' }}
-                                >
-                                  📋
-                                </Link>
-                              )
+                            )}
+                            {ticket.position_id && (
+                              <Link
+                                to={`/positions/${ticket.position_id}`}
+                                className="btn btn-ghost btn-xs"
+                                title="Open Board"
+                                style={{ textDecoration: 'none' }}
+                              >
+                                📋
+                              </Link>
                             )}
                           </div>
                         </td>
