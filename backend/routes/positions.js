@@ -32,8 +32,8 @@ router.get('/:id/board', async (req, res, next) => {
         COUNT(DISTINCT t.id)                       AS ticket_count,
         COALESCE(MAX(t.ticket_status::text), '')   AS ticket_status,
         COALESCE(MAX(t.ticket_type::text), '')     AS ticket_type,
-        COALESCE(MAX(t.action), '')                AS action,
-        COALESCE(MAX(t.sub_action), '')            AS sub_action
+        COALESCE(MAX(t.action::text), '')          AS action,
+        COALESCE(MAX(t.sub_action::text), '')      AS sub_action
       FROM positions p
       LEFT JOIN tickets t               ON t.position_id = p.id
       LEFT JOIN departments d           ON d.id = t.department_id
