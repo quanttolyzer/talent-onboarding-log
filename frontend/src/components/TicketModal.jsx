@@ -73,6 +73,16 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
         position_id: value,
         management_type: pos?.management_type || f.management_type,
       }));
+    } else if (field === 'ticket_type') {
+      const t = value.toLowerCase();
+      let autoStatus = null;
+      if (t === 'hiring ticket') autoStatus = 'Active';
+      else if (t === 'offer ticket' || t === 'onboarding ticket') autoStatus = 'In-Progress';
+      setForm(f => ({
+        ...f,
+        ticket_type: value,
+        ...(autoStatus !== null ? { ticket_status: autoStatus } : {}),
+      }));
     } else {
       setForm(f => ({ ...f, [field]: value }));
     }
@@ -100,6 +110,13 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
   // Dynamic values from mappings — fall back to empty arrays until loaded
   const statuses        = mappings?.ticket_statuses  || [];
   const ticketTypes     = mappings?.ticket_types     || [];
+
+  const filteredStatuses = (() => {
+    const t = form.ticket_type.toLowerCase();
+    if (t === 'hiring ticket')   return statuses.filter(s => s.name === 'Active');
+    if (t === 'offer ticket' || t === 'onboarding ticket') return statuses.filter(s => s.name === 'In-Progress');
+    return statuses;
+  })();
   const managementTypes = mappings?.management_types || [];
   const actions         = mappings?.actions          || [];
   const allSubActions   = mappings?.sub_actions      || [];
@@ -158,7 +175,7 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
         <div className="form-group">
           <label>Ticket Status *</label>
           <select required value={form.ticket_status} onChange={e => set('ticket_status', e.target.value)}>
-            {statuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+            {filteredStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
           </select>
         </div>
         <div className="form-group">
