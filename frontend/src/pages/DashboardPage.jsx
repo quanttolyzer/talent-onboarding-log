@@ -241,60 +241,53 @@ export default function DashboardPage() {
               <button className="btn btn-ghost btn-sm" onClick={clearFilters}>Clear all</button>
             </div>
 
-            {/* Filter row 1: Status, Type, Owner */}
-            <div style={{ display:'flex', gap:'10px', marginBottom:'10px', flexWrap:'wrap' }}>
-              <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'150px' }}>
+            {/* Filters — 3-column equal grid */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'10px', marginBottom:'16px' }}>
+              <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
                 <option value="">All Statuses</option>
                 {(mappingsQuery.data?.ticket_statuses || FALLBACK_STATUSES.map(s => ({ id: s, name: s }))).map(s => (
                   <option key={s.id || s} value={s.name || s}>{s.name || s}</option>
                 ))}
               </select>
-              <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+              <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}>
                 <option value="">All Types</option>
                 {(mappingsQuery.data?.ticket_types || FALLBACK_TYPES.map(t => ({ id: t, name: t }))).map(t => (
                   <option key={t.id || t} value={t.name || t}>{t.name || t}</option>
                 ))}
               </select>
-              <select value={filterOwner} onChange={e => { setFilterOwner(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+              <select value={filterOwner} onChange={e => { setFilterOwner(e.target.value); setPage(1); }}>
                 <option value="">All Owners</option>
                 {(filterOptionsQuery.data?.owners || []).map(o => (
                   <option key={o.id} value={o.id}>{o.name}</option>
                 ))}
               </select>
-            </div>
-
-            {/* Filter row 2: Department, Position, Country & bulk actions */}
-            <div style={{ display:'flex', gap:'10px', marginBottom:'16px', flexWrap:'wrap' }}>
-              <select value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+              <select value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
                 <option value="">All Departments</option>
                 {(mappingsQuery.data?.departments || []).map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
-              <select value={filterPosition} onChange={e => { setFilterPosition(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+              <select value={filterPosition} onChange={e => { setFilterPosition(e.target.value); setPage(1); }}>
                 <option value="">All Positions</option>
                 {(mappingsQuery.data?.positions || []).map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-              <select value={filterCountry} onChange={e => { setFilterCountry(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'180px' }}>
+              <select value={filterCountry} onChange={e => { setFilterCountry(e.target.value); setPage(1); }}>
                 <option value="">All Countries & Companies</option>
                 {(mappingsQuery.data?.country_companies || []).map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-
-              <div style={{ marginLeft:'auto', display:'flex', gap:'8px' }}>
-                {selected.size > 0 && <>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setEditTicket(selectedTickets[0])}>
-                    Edit
-                  </button>
-                  <button className="btn btn-danger btn-sm" onClick={() => confirmDelete([...selected])}>
-                    Delete ({selected.size})
-                  </button>
-                </>}
-              </div>
             </div>
+
+            {/* Bulk actions — only visible when rows are selected */}
+            {selected.size > 0 && (
+              <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', marginBottom:'12px' }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditTicket(selectedTickets[0])}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={() => confirmDelete([...selected])}>Delete ({selected.size})</button>
+              </div>
+            )}
 
             {/* Results count */}
             <div style={{ fontSize:'0.8rem', color:'var(--text-2)', marginBottom:'12px' }}>
