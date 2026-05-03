@@ -30,8 +30,8 @@ router.get('/:id/board', async (req, res, next) => {
         COALESCE(MAX(dhm.name), '')                AS direct_hm_name,
         COALESCE(MAX(t.candidate_count), 0)        AS required_candidates,
         COUNT(DISTINCT t.id)                       AS ticket_count,
-        COALESCE(MAX(ts.name), '')                 AS ticket_status,
-        COALESCE(MAX(tt.name), '')                 AS ticket_type,
+        COALESCE(MAX(t.ticket_status), '')         AS ticket_status,
+        COALESCE(MAX(t.ticket_type), '')           AS ticket_type,
         COALESCE(MAX(t.action), '')                AS action,
         COALESCE(MAX(t.sub_action), '')            AS sub_action
       FROM positions p
@@ -40,8 +40,6 @@ router.get('/:id/board', async (req, res, next) => {
       LEFT JOIN hiring_managers uhm     ON uhm.id = t.ultimate_hm_id
       LEFT JOIN hiring_managers dhm     ON dhm.id = t.direct_hm_id
       LEFT JOIN country_companies cc    ON cc.id = t.country_company_id
-      LEFT JOIN ticket_statuses ts      ON ts.id = t.status_id
-      LEFT JOIN ticket_types tt         ON tt.id = t.type_id
       WHERE p.id = $1
       GROUP BY p.id, p.name, p.board_status, p.management_type
     `, [id]);
