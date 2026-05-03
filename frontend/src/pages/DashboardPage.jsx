@@ -25,8 +25,9 @@ function stickyBg(isSelected) {
 }
 
 export default function DashboardPage() {
-  const user   = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
+  const user    = useAuthStore((s) => s.user);
+  const logout  = useAuthStore((s) => s.logout);
+  const isAdmin = user?.role === 'admin';
   const qc     = useQueryClient();
 
   // ── Tab ─────────────────────────────────────────────────────
