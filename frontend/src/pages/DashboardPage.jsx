@@ -49,6 +49,12 @@ export default function DashboardPage() {
   const [editTicket,      setEditTicket]      = useState(null);
   const [progressTicket,  setProgressTicket]  = useState(null);
 
+  // ── Top scrollbar mirror ─────────────────────────────────────
+  const topScrollRef  = useRef(null);
+  const tableWrapRef  = useRef(null);
+  function syncFromTop()   { if (tableWrapRef.current) tableWrapRef.current.scrollLeft = topScrollRef.current.scrollLeft; }
+  function syncFromTable() { if (topScrollRef.current)  topScrollRef.current.scrollLeft  = tableWrapRef.current.scrollLeft; }
+
   // ── Debounced search ─────────────────────────────────────────
   const searchTimer = useRef(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -274,7 +280,18 @@ export default function DashboardPage() {
             </div>
 
             {/* ── Table ── */}
-            <div style={{
+            {/* Top scrollbar mirror — synced with the table wrapper below */}
+            <div
+              ref={topScrollRef}
+              onScroll={syncFromTop}
+              style={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', marginBottom: '2px' }}
+            >
+              <div style={{ minWidth: '1720px', height: '1px' }} />
+            </div>
+            <div
+              ref={tableWrapRef}
+              onScroll={syncFromTable}
+              style={{
               overflowX: 'auto',
               borderRadius: 'var(--radius)',
               border: '1px solid var(--border)',
