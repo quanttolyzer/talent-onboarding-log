@@ -52,8 +52,19 @@ export default function DashboardPage() {
   // ── Top scrollbar mirror ─────────────────────────────────────
   const topScrollRef  = useRef(null);
   const tableWrapRef  = useRef(null);
-  function syncFromTop()   { if (tableWrapRef.current) tableWrapRef.current.scrollLeft = topScrollRef.current.scrollLeft; }
-  function syncFromTable() { if (topScrollRef.current)  topScrollRef.current.scrollLeft  = tableWrapRef.current.scrollLeft; }
+  const isSyncing     = useRef(false);
+  function syncFromTop() {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (tableWrapRef.current) tableWrapRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    isSyncing.current = false;
+  }
+  function syncFromTable() {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (topScrollRef.current) topScrollRef.current.scrollLeft = tableWrapRef.current.scrollLeft;
+    isSyncing.current = false;
+  }
 
   // ── Debounced search ─────────────────────────────────────────
   const searchTimer = useRef(null);
