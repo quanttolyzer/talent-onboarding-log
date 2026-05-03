@@ -22,21 +22,28 @@ router.get('/:id/board', async (req, res, next) => {
     // Position details
     const { rows: [pos] } = await pool.query(`
       SELECT
-        p.id, p.name, p.board_status,
-        COALESCE(MAX(d.name), '')           AS department_name,
-        COALESCE(MAX(cc.label), '')         AS country_company_label,
+        p.id, p.name, p.board_status, p.management_type AS position_management_type,
+        COALESCE(MAX(d.name), '')                  AS department_name,
+        COALESCE(MAX(cc.label), '')                AS country_company_label,
         COALESCE(MAX(t.management_type::text), '') AS management_type,
-        COALESCE(MAX(uhm.name), '')          AS ultimate_hm_name,
-        COALESCE(MAX(dhm.name), '')          AS direct_hm_name,
-        COALESCE(MAX(t.candidate_count), 0)  AS required_candidates
+        COALESCE(MAX(uhm.name), '')                AS ultimate_hm_name,
+        COALESCE(MAX(dhm.name), '')                AS direct_hm_name,
+        COALESCE(MAX(t.candidate_count), 0)        AS required_candidates,
+        COUNT(DISTINCT t.id)                       AS ticket_count,
+        COALESCE(MAX(ts.name), '')                 AS ticket_status,
+        COALESCE(MAX(tt.name), '')                 AS ticket_type,
+        COALESCE(MAX(t.action), '')                AS action,
+        COALESCE(MAX(t.sub_action), '')            AS sub_action
       FROM positions p
       LEFT JOIN tickets t               ON t.position_id = p.id
       LEFT JOIN departments d           ON d.id = t.department_id
       LEFT JOIN hiring_managers uhm     ON uhm.id = t.ultimate_hm_id
       LEFT JOIN hiring_managers dhm     ON dhm.id = t.direct_hm_id
       LEFT JOIN country_companies cc    ON cc.id = t.country_company_id
+      LEFT JOIN ticket_statuses ts      ON ts.id = t.status_id
+      LEFT JOIN ticket_types tt         ON tt.id = t.type_id
       WHERE p.id = $1
-      GROUP BY p.id, p.name, p.board_status
+      GROUP BY p.id, p.name, p.board_status, p.management_type
     `, [id]);
 
     if (!pos) return res.status(404).json({ error: 'Position not found' });
@@ -85,10 +92,20 @@ router.get('/:id/board', async (req, res, next) => {
       ORDER BY s.moved_at ASC
     `, [id]);
 
+    // HR Interviews
+    const { rows: hrInterviews } = await pool.query(`
+      SELECT h.id, h.count, h.created_at, u.name AS created_by_name
+      FROM position_board_hr_interviews h
+      LEFT JOIN users u ON u.id = h.created_by
+      WHERE h.position_id = $1
+      ORDER BY h.created_at ASC
+    `, [id]);
+
     res.json({
-      position:  pos,
+      position:     pos,
       screenings,
-      batches:   Object.values(batchMap),
+      hr_interviews: hrInterviews,
+      batches:      Object.values(batchMap),
       stages,
     });
   } catch (err) { next(err); }
@@ -270,6 +287,78 @@ router.post('/:id/reopen', async (req, res, next) => {
     res.json({ message: 'Position re-opened' });
   } catch (err) { await client.query('ROLLBACK'); next(err); }
   finally { client.release(); }
+});
+
+// ── POST /positions/:id/hr-interviews ────────────────────────
+router.post('/:id/hr-interviews', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { count } = req.body;
+    if (!count || count < 1) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'count must be a positive integer' });
+    }
+    const { rows: [row] } = await client.query(
+      `INSERT INTO position_board_hr_interviews (position_id, count, created_by)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [req.params.id, count, req.user.id]
+    );
+    await writeLog(client, req.params.id, req.user.id, 'hr_interview_added', { count });
+    await client.query('COMMIT');
+    res.status(201).json(row);
+  } catch (err) { await client.query('ROLLBACK'); next(err); }
+  finally { client.release(); }
+});
+
+// ── DELETE routes (admin only) ────────────────────────────────
+
+function requireAdmin(req, res) {
+  if (req.user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin access required' });
+    return false;
+  }
+  return true;
+}
+
+router.delete('/:id/screenings/:screeningId', async (req, res, next) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    await pool.query('DELETE FROM position_board_screenings WHERE id = $1 AND position_id = $2', [req.params.screeningId, req.params.id]);
+    res.json({ message: 'Deleted' });
+  } catch (err) { next(err); }
+});
+
+router.delete('/:id/hr-interviews/:hrId', async (req, res, next) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    await pool.query('DELETE FROM position_board_hr_interviews WHERE id = $1 AND position_id = $2', [req.params.hrId, req.params.id]);
+    res.json({ message: 'Deleted' });
+  } catch (err) { next(err); }
+});
+
+router.delete('/:id/batches/:batchId/candidates/:candidateId', async (req, res, next) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    await pool.query('DELETE FROM position_board_candidates WHERE id = $1 AND batch_id = $2', [req.params.candidateId, req.params.batchId]);
+    res.json({ message: 'Deleted' });
+  } catch (err) { next(err); }
+});
+
+router.delete('/:id/batches/:batchId', async (req, res, next) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    await pool.query('DELETE FROM position_board_batches WHERE id = $1 AND position_id = $2', [req.params.batchId, req.params.id]);
+    res.json({ message: 'Deleted' });
+  } catch (err) { next(err); }
+});
+
+router.delete('/:id/stages/:stageId', async (req, res, next) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    await pool.query('DELETE FROM position_board_stages WHERE id = $1 AND position_id = $2', [req.params.stageId, req.params.id]);
+    res.json({ message: 'Deleted' });
+  } catch (err) { next(err); }
 });
 
 // ── GET /positions/:id/log ────────────────────────────────────

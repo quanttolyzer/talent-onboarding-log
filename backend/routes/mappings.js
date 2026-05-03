@@ -12,7 +12,7 @@ router.get('/', async (req, res, next) => {
       ticketStatuses, ticketTypes, managementTypes, actions, subActions, users,
       autoFillRules, assessmentLevels,
     ] = await Promise.all([
-      pool.query(`SELECT id, name FROM positions        WHERE is_active = true ORDER BY name`),
+      pool.query(`SELECT id, name, management_type FROM positions WHERE is_active = true ORDER BY name`),
       pool.query(`SELECT id, name FROM departments      WHERE is_active = true ORDER BY name`),
       pool.query(`SELECT id, name FROM hiring_managers  WHERE is_active = true ORDER BY name`),
       pool.query(`SELECT id, label AS name FROM country_companies WHERE is_active = true ORDER BY label`),

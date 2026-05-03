@@ -2,12 +2,15 @@
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 import PositionDetails from '../components/board/PositionDetails';
 import KanbanBoard from '../components/board/KanbanBoard';
 import ActivityLog from '../components/board/ActivityLog';
 
 export default function PositionPage() {
   const { positionId } = useParams();
+  const user = useAuthStore(s => s.user);
+  const isAdmin = user?.role === 'admin';
 
   const boardQuery = useQuery({
     queryKey: ['board', positionId],
@@ -84,6 +87,7 @@ export default function PositionPage() {
           positionId={positionId}
           board={board}
           assessmentLevels={assessmentLevels}
+          isAdmin={isAdmin}
         />
 
         {/* Activity log */}

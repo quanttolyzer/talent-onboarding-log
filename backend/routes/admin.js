@@ -127,7 +127,7 @@ router.get('/dropdowns', async (req, res, next) => {
       ticketStatuses, ticketTypes, managementTypes, actions, subActions,
       autoFillRules, assessmentLevels,
     ] = await Promise.all([
-      pool.query('SELECT id, name, is_active, created_at FROM positions ORDER BY name'),
+      pool.query('SELECT id, name, management_type, is_active, created_at FROM positions ORDER BY name'),
       pool.query('SELECT id, name, is_active, created_at FROM departments ORDER BY name'),
       pool.query('SELECT id, name, is_active, created_at FROM hiring_managers ORDER BY name'),
       pool.query('SELECT id, label AS name, is_active, created_at FROM country_companies ORDER BY label'),
@@ -174,11 +174,11 @@ router.post('/positions', async (req, res, next) => {
 router.put('/positions/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, is_active } = req.body;
+    const { name, is_active, management_type } = req.body;
 
     const { rows } = await pool.query(
-      'UPDATE positions SET name = $1, is_active = $2 WHERE id = $3 RETURNING *',
-      [name, is_active, id]
+      'UPDATE positions SET name = $1, is_active = $2, management_type = $3 WHERE id = $4 RETURNING *',
+      [name, is_active, management_type || null, id]
     );
 
     if (rows.length === 0) return res.status(404).json({ error: 'Position not found' });

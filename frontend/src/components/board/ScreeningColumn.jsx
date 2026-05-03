@@ -4,10 +4,16 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
-export default function ScreeningColumn({ positionId, screenings }) {
+export default function ScreeningColumn({ positionId, screenings, isAdmin }) {
   const qc = useQueryClient();
   const [showPopup, setShowPopup] = useState(false);
   const [count, setCount] = useState('');
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.delete(`/positions/${positionId}/screenings/${id}`),
+    onSuccess: () => { qc.invalidateQueries(['board', positionId]); toast.success('Deleted'); },
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed'),
+  });
 
   const addMutation = useMutation({
     mutationFn: (data) => api.post(`/positions/${positionId}/screenings`, data).then(r => r.data),
@@ -45,8 +51,12 @@ export default function ScreeningColumn({ positionId, screenings }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
         {screenings.map((s, i) => (
           <div key={s.id} style={cardStyle}>
-            <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
-              Screening #{i + 1}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>Screening #{i + 1}</div>
+              {isAdmin && (
+                <button className="btn btn-danger btn-xs" style={{ padding: '1px 5px', fontSize: '0.7rem' }}
+                  onClick={() => deleteMutation.mutate(s.id)}>🗑</button>
+              )}
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-2)', marginTop: '2px' }}>
               {s.count} candidates · {new Date(s.created_at).toLocaleDateString()}

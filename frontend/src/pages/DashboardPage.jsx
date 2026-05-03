@@ -376,14 +376,7 @@ export default function DashboardPage() {
                         </td>
 
                         <td style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {ticket.position_id ? (
-                            <Link
-                              to={`/positions/${ticket.position_id}`}
-                              style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}
-                            >
-                              {ticket.position_name || '—'}
-                            </Link>
-                          ) : (ticket.position_name || '—')}
+                          {ticket.position_name || '—'}
                         </td>
 
                         <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>
@@ -410,6 +403,33 @@ export default function DashboardPage() {
 
                         <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.action}</td>
 
+                        {/* FIX: Actions sticky cell — always opaque background, right border for selection cue */}
+                        <td style={{
+                          position: 'sticky', right: 0,
+                          background: stickyBg(isSelected), zIndex: 4,
+                          borderRight: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
+                          transition: 'border-color 0.15s',
+                        }}>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">
+                              📝
+                            </button>
+                            {user?.role === 'admin' && <>
+                              <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
+                              <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
+                              {ticket.position_id && (
+                                <Link
+                                  to={`/positions/${ticket.position_id}`}
+                                  className="btn btn-ghost btn-xs"
+                                  title="Open Board"
+                                  style={{ textDecoration: 'none' }}
+                                >
+                                  📋
+                                </Link>
+                              )}
+                            </>}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}

@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 import ScreeningColumn, { overlayStyle, popupStyle, cardStyle } from './ScreeningColumn';
+import HRInterviewColumn from './HRInterviewColumn';
 import BatchesColumn from './BatchesColumn';
 import {
   AssessmentColumn,
@@ -13,11 +14,12 @@ import {
   HiredColumn,
 } from './StageColumns';
 
+// batch can go to assessment OR technical_interview directly
 const VALID_TRANSITIONS = {
-  batch:                'assessment',
-  assessment:           'technical_interview',
-  technical_interview:  'offer',
-  offer:                'hired',
+  batch:               ['assessment', 'technical_interview'],
+  assessment:          'technical_interview',
+  technical_interview: 'offer',
+  offer:               'hired',
 };
 
 const REQUIRES_POPUP = {
@@ -25,7 +27,7 @@ const REQUIRES_POPUP = {
   offer:      true,
 };
 
-export default function KanbanBoard({ positionId, board, assessmentLevels }) {
+export default function KanbanBoard({ positionId, board, assessmentLevels, isAdmin }) {
   const qc = useQueryClient();
   const [activeCard, setActiveCard]           = useState(null);
   const [pendingDrop, setPendingDrop]         = useState(null);
@@ -61,8 +63,11 @@ export default function KanbanBoard({ positionId, board, assessmentLevels }) {
     const { candidateId, candidateName, sourceStage } = active.data.current;
     const { targetStage } = over.data.current;
 
-    if (VALID_TRANSITIONS[sourceStage] !== targetStage) {
-      toast.error(`Cannot move from ${sourceStage.replace('_', ' ')} to ${targetStage.replace('_', ' ')}`);
+    const allowed = VALID_TRANSITIONS[sourceStage];
+    const validTargets = Array.isArray(allowed) ? allowed : [allowed];
+
+    if (!validTargets.includes(targetStage)) {
+      toast.error(`Cannot move from ${sourceStage.replace(/_/g, ' ')} to ${targetStage.replace(/_/g, ' ')}`);
       return;
     }
 
@@ -98,12 +103,13 @@ export default function KanbanBoard({ positionId, board, assessmentLevels }) {
           paddingBottom: '12px',
           alignItems: 'flex-start',
         }}>
-          <ScreeningColumn positionId={positionId} screenings={board.screenings} />
-          <BatchesColumn positionId={positionId} batches={board.batches} />
-          <AssessmentColumn positionId={positionId} stages={board.stages} assessmentLevels={assessmentLevels} />
-          <TechnicalInterviewColumn stages={board.stages} />
-          <OfferColumn stages={board.stages} />
-          <HiredColumn stages={board.stages} position={board.position} />
+          <ScreeningColumn positionId={positionId} screenings={board.screenings} isAdmin={isAdmin} />
+          <HRInterviewColumn positionId={positionId} hrInterviews={board.hr_interviews || []} isAdmin={isAdmin} />
+          <BatchesColumn positionId={positionId} batches={board.batches} stages={board.stages} isAdmin={isAdmin} />
+          <AssessmentColumn positionId={positionId} stages={board.stages} assessmentLevels={assessmentLevels} isAdmin={isAdmin} />
+          <TechnicalInterviewColumn stages={board.stages} positionId={positionId} isAdmin={isAdmin} />
+          <OfferColumn stages={board.stages} positionId={positionId} isAdmin={isAdmin} />
+          <HiredColumn stages={board.stages} position={board.position} positionId={positionId} isAdmin={isAdmin} />
         </div>
 
         <DragOverlay>
