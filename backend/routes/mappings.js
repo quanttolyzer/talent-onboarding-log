@@ -10,6 +10,7 @@ router.get('/', async (req, res, next) => {
     const [
       positions, departments, managers, countryCompanies,
       ticketStatuses, ticketTypes, managementTypes, actions, subActions, users,
+      autoFillRules,
     ] = await Promise.all([
       pool.query(`SELECT id, name FROM positions        WHERE is_active = true ORDER BY name`),
       pool.query(`SELECT id, name FROM departments      WHERE is_active = true ORDER BY name`),
@@ -21,19 +22,21 @@ router.get('/', async (req, res, next) => {
       pool.query(`SELECT id, name FROM actions          WHERE is_active = true ORDER BY sort_order, name`),
       pool.query(`SELECT id, action_name, name FROM sub_actions WHERE is_active = true ORDER BY action_name, sort_order, name`),
       pool.query(`SELECT id, name FROM users WHERE is_active = true ORDER BY name`),
+      pool.query(`SELECT id, action_value, sub_action_value FROM action_subaction_rules WHERE is_active = true ORDER BY action_value`),
     ]);
 
     res.json({
-      positions:        positions.rows,
-      departments:      departments.rows,
-      hiring_managers:  managers.rows,
-      country_companies: countryCompanies.rows,
-      ticket_statuses:  ticketStatuses.rows,
-      ticket_types:     ticketTypes.rows,
-      management_types: managementTypes.rows,
-      actions:          actions.rows,
-      sub_actions:      subActions.rows,
-      users:            users.rows,
+      positions:              positions.rows,
+      departments:            departments.rows,
+      hiring_managers:        managers.rows,
+      country_companies:      countryCompanies.rows,
+      ticket_statuses:        ticketStatuses.rows,
+      ticket_types:           ticketTypes.rows,
+      management_types:       managementTypes.rows,
+      actions:                actions.rows,
+      sub_actions:            subActions.rows,
+      users:                  users.rows,
+      action_subaction_rules: autoFillRules.rows,
     });
   } catch (err) { next(err); }
 });

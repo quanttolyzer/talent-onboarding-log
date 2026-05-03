@@ -125,6 +125,7 @@ router.get('/dropdowns', async (req, res, next) => {
     const [
       positions, departments, hiringManagers, countryCompanies,
       ticketStatuses, ticketTypes, managementTypes, actions, subActions,
+      autoFillRules,
     ] = await Promise.all([
       pool.query('SELECT id, name, is_active, created_at FROM positions ORDER BY name'),
       pool.query('SELECT id, name, is_active, created_at FROM departments ORDER BY name'),
@@ -135,18 +136,20 @@ router.get('/dropdowns', async (req, res, next) => {
       pool.query('SELECT id, name, is_active, created_at FROM management_types ORDER BY sort_order, name'),
       pool.query('SELECT id, name, is_active, created_at FROM actions ORDER BY sort_order, name'),
       pool.query('SELECT id, action_name, name, is_active, created_at FROM sub_actions ORDER BY action_name, sort_order, name'),
+      pool.query('SELECT id, action_value, sub_action_value, is_active, created_at FROM action_subaction_rules ORDER BY action_value'),
     ]);
 
     res.json({
-      positions:         positions.rows,
-      departments:       departments.rows,
-      hiring_managers:   hiringManagers.rows,
-      country_companies: countryCompanies.rows,
-      ticket_statuses:   ticketStatuses.rows,
-      ticket_types:      ticketTypes.rows,
-      management_types:  managementTypes.rows,
-      actions:           actions.rows,
-      sub_actions:       subActions.rows,
+      positions:              positions.rows,
+      departments:            departments.rows,
+      hiring_managers:        hiringManagers.rows,
+      country_companies:      countryCompanies.rows,
+      ticket_statuses:        ticketStatuses.rows,
+      ticket_types:           ticketTypes.rows,
+      management_types:       managementTypes.rows,
+      actions:                actions.rows,
+      sub_actions:            subActions.rows,
+      action_subaction_rules: autoFillRules.rows,
     });
   } catch (err) { next(err); }
 });
@@ -523,5 +526,128 @@ function convertToCSV(data) {
   );
   return [headers.join(','), ...csvRows].join('\n');
 }
+
+// ── ACTION→SUB-ACTION AUTO-FILL RULES ─────────────────────────
+
+router.get('/action-subaction-rules', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, action_value, sub_action_value, is_active, created_at
+       FROM action_subaction_rules ORDER BY action_value`
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+router.post('/action-subaction-rules', async (req, res, next) => {
+  try {
+    const { action_value, sub_action_value } = req.body;
+    if (!action_value || !sub_action_value)
+      return res.status(400).json({ error: 'action_value and sub_action_value are required' });
+    const { rows } = await pool.query(
+      `INSERT INTO action_subaction_rules (action_value, sub_action_value)
+       VALUES ($1, $2) RETURNING *`,
+      [action_value, sub_action_value]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+router.put('/action-subaction-rules/:id', async (req, res, next) => {
+  try {
+    const { action_value, sub_action_value, is_active } = req.body;
+    const { rows } = await pool.query(
+      `UPDATE action_subaction_rules
+       SET action_value = $1, sub_action_value = $2, is_active = $3
+       WHERE id = $4 RETURNING *`,
+      [action_value, sub_action_value, is_active, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Rule not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+router.delete('/action-subaction-rules/:id', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `DELETE FROM action_subaction_rules WHERE id = $1 RETURNING id`, [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Rule not found' });
+    res.json({ message: 'Deleted successfully' });
+  } catch (err) { next(err); }
+});
+
+// ── DATE OVERRIDE ──────────────────────────────────────────────
+
+router.post('/users/:id/date-override', async (req, res, next) => {
+  try {
+    const { expires_at } = req.body;
+    if (!expires_at) return res.status(400).json({ error: 'expires_at is required' });
+    const { rows } = await pool.query(
+      `UPDATE users
+       SET date_override_enabled = true, date_override_expires_at = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, name, date_override_enabled, date_override_expires_at`,
+      [expires_at, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+router.delete('/users/:id/date-override', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE users
+       SET date_override_enabled = false, date_override_expires_at = NULL, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, name, date_override_enabled, date_override_expires_at`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// ── VISIBILITY GRANTS ──────────────────────────────────────────
+
+router.get('/users/:id/visibility', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT g.target_id, u.name AS target_name
+       FROM user_visibility_grants g
+       JOIN users u ON u.id = g.target_id
+       WHERE g.viewer_id = $1
+       ORDER BY u.name`,
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+router.post('/users/:id/visibility', async (req, res, next) => {
+  try {
+    const { target_id } = req.body;
+    if (!target_id) return res.status(400).json({ error: 'target_id is required' });
+    const { rows } = await pool.query(
+      `INSERT INTO user_visibility_grants (viewer_id, target_id, granted_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (viewer_id, target_id) DO NOTHING
+       RETURNING *`,
+      [req.params.id, target_id, req.user.id]
+    );
+    res.status(201).json(rows[0] || { message: 'Already granted' });
+  } catch (err) { next(err); }
+});
+
+router.delete('/users/:id/visibility/:target_id', async (req, res, next) => {
+  try {
+    await pool.query(
+      `DELETE FROM user_visibility_grants WHERE viewer_id = $1 AND target_id = $2`,
+      [req.params.id, req.params.target_id]
+    );
+    res.json({ message: 'Revoked' });
+  } catch (err) { next(err); }
+});
 
 module.exports = router;

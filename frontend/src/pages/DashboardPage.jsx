@@ -6,7 +6,7 @@ import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import StatusBadge from '../components/StatusBadge';
 import TicketModal from '../components/TicketModal';
-import CloneModal from '../components/CloneModal';
+import UpdateProgressModal from '../components/UpdateProgressModal';
 
 // Statuses and ticket types are now dynamic — loaded from mappings.
 // These fallbacks are only used before the first API response arrives.
@@ -41,12 +41,12 @@ export default function DashboardPage() {
   const [filterPosition, setFilterPosition] = useState('');
   const [filterCountry,  setFilterCountry]  = useState('');
   const [page,           setPage]           = useState(1);
-  const LIMIT = 100;
+  const LIMIT = 50;
 
   // ── Selection ────────────────────────────────────────────────
-  const [selected,   setSelected]   = useState(new Set());
-  const [editTicket, setEditTicket] = useState(null);
-  const [cloneRows,  setCloneRows]  = useState(null);
+  const [selected,        setSelected]        = useState(new Set());
+  const [editTicket,      setEditTicket]      = useState(null);
+  const [progressTicket,  setProgressTicket]  = useState(null);
 
   // ── Debounced search ─────────────────────────────────────────
   const searchTimer = useRef(null);
@@ -104,14 +104,6 @@ export default function DashboardPage() {
     onError: (err) => toast.error(err.response?.data?.error || 'Delete failed'),
   });
 
-  const statusMutation = useMutation({
-    mutationFn: ({ id, status }) => api.patch(`/tickets/${id}/status`, { status }),
-    onSuccess: () => {
-      qc.invalidateQueries(['tickets']);
-      toast.success('Status updated');
-    },
-    onError: (err) => toast.error(err.response?.data?.error || 'Update failed'),
-  });
 
   // ── Helpers ──────────────────────────────────────────────────
   const tickets = ticketsQuery.data?.data  || [];
@@ -147,7 +139,7 @@ export default function DashboardPage() {
     }
   }
 
-  const COL_COUNT = 19;
+  const COL_COUNT = 16;
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
@@ -260,9 +252,6 @@ export default function DashboardPage() {
 
               <div style={{ marginLeft:'auto', display:'flex', gap:'8px' }}>
                 {selected.size > 0 && <>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setCloneRows(selectedTickets)}>
-                    Clone ({selected.size})
-                  </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setEditTicket(selectedTickets[0])}>
                     Edit
                   </button>
@@ -287,7 +276,7 @@ export default function DashboardPage() {
             <div style={{
               overflowX: 'auto',
               overflowY: 'auto',
-              maxHeight: 'calc(100vh - 360px)',
+              maxHeight: 'calc(100vh - 300px)',
               borderRadius: 'var(--radius)',
               border: '1px solid var(--border)',
               scrollbarWidth: 'thin',
@@ -318,9 +307,6 @@ export default function DashboardPage() {
                     <th>Country & Company</th>
                     <th style={{ textAlign:'center' }}>Candidates</th>
                     <th>Action</th>
-                    <th>Sub-Action</th>
-                    <th>Remarks</th>
-                    <th>Group</th>
                     {/* FIX: thead sticky actions cell — always opaque */}
                     <th style={{ position:'sticky', right:0, zIndex:6, background:'var(--bg)' }}>Actions</th>
                   </tr>
@@ -393,8 +379,15 @@ export default function DashboardPage() {
                           {ticket.ticket_date?.slice(0,10) || '—'}
                         </td>
 
-                        <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {ticket.position_name || '—'}
+                        <td style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {ticket.position_id ? (
+                            <Link
+                              to={`/positions/${ticket.position_id}`}
+                              style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}
+                            >
+                              {ticket.position_name || '—'}
+                            </Link>
+                          ) : (ticket.position_name || '—')}
                         </td>
 
                         <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>
@@ -421,39 +414,21 @@ export default function DashboardPage() {
 
                         <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.action}</td>
 
-                        <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {ticket.sub_action || '—'}
-                        </td>
-
-                        <td style={{ fontSize:'0.8rem', color:'var(--text-2)', maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {ticket.remarks || '—'}
-                        </td>
-
-                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.75rem', color:'var(--text-3)', whiteSpace:'nowrap' }}>
-                          {ticket.group_code || '—'}
-                        </td>
-
                         {/* FIX: Actions sticky cell — always opaque background, right border for selection cue */}
                         <td style={{
-                          position: 'sticky',
-                          right: 0,
-                          background: stickyBg(isSelected),
-                          zIndex: 4,
+                          position: 'sticky', right: 0,
+                          background: stickyBg(isSelected), zIndex: 4,
                           borderRight: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
                           transition: 'border-color 0.15s',
                         }}>
-                          <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
-                            <select
-                              value={ticket.ticket_status}
-                              onChange={e => statusMutation.mutate({ id: ticket.id, status: e.target.value })}
-                              style={{ width:'auto', minWidth:'110px', fontSize:'0.78rem', padding:'5px 8px' }}
-                            >
-                              {(mappingsQuery.data?.ticket_statuses || FALLBACK_STATUSES.map(s => ({ id: s, name: s }))).map(s => (
-                                <option key={s.id || s} value={s.name || s}>{s.name || s}</option>
-                              ))}
-                            </select>
-                            <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
-                            <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">
+                              📝
+                            </button>
+                            {user?.role === 'admin' && <>
+                              <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
+                              <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
+                            </>}
                           </div>
                         </td>
 
@@ -507,17 +482,12 @@ export default function DashboardPage() {
         />
       )}
 
-      {cloneRows && (
-        <CloneModal
-          rows={cloneRows}
+      {progressTicket && (
+        <UpdateProgressModal
+          ticket={progressTicket}
           mappings={mappingsQuery.data}
-          onClose={() => setCloneRows(null)}
-          onSaved={() => {
-            qc.invalidateQueries(['tickets']);
-            setCloneRows(null);
-            setSelected(new Set());
-            toast.success('Cloned!');
-          }}
+          onClose={() => setProgressTicket(null)}
+          onSaved={() => setProgressTicket(null)}
         />
       )}
     </div>
