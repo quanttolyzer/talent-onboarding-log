@@ -25,7 +25,7 @@ router.get('/:id/board', async (req, res, next) => {
         p.id, p.name, p.board_status,
         COALESCE(MAX(d.name), '')           AS department_name,
         COALESCE(MAX(cc.label), '')         AS country_company_label,
-        COALESCE(MAX(t.management_type), '') AS management_type,
+        COALESCE(MAX(t.management_type::text), '') AS management_type,
         COALESCE(MAX(uhm.name), '')          AS ultimate_hm_name,
         COALESCE(MAX(dhm.name), '')          AS direct_hm_name,
         COALESCE(MAX(t.candidate_count), 0)  AS required_candidates
