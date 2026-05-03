@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -5,12 +6,11 @@ import { useAuthStore } from './store/authStore';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
+import PositionPage from './pages/PositionPage';
 import RoleGuard from './components/RoleGuard';
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, staleTime: 30_000 },
-  },
+  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
 
 function ProtectedRoute({ children }) {
@@ -19,6 +19,13 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
+  const hydrate   = useAuthStore((s) => s.hydrate);
+  const refreshMe = useAuthStore((s) => s.refreshMe);
+  const isAuth    = useAuthStore((s) => s.isAuthenticated);
+
+  useEffect(() => { hydrate(); }, []);
+  useEffect(() => { if (isAuth) refreshMe(); }, [isAuth]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -41,6 +48,14 @@ export default function App() {
                 <RoleGuard>
                   <AdminPage />
                 </RoleGuard>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/positions/:positionId"
+            element={
+              <ProtectedRoute>
+                <PositionPage />
               </ProtectedRoute>
             }
           />
