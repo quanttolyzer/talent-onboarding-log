@@ -139,7 +139,7 @@ export default function DashboardPage() {
     }
   }
 
-  const COL_COUNT = 15;
+  const COL_COUNT = isAdmin ? 15 : 14;
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
@@ -283,14 +283,16 @@ export default function DashboardPage() {
                 <thead>
                   <tr>
                     {/* FIX: thead sticky checkbox cell — always opaque */}
-                    <th style={{ width:'36px', position:'sticky', left:0, zIndex:6, background:'var(--bg)' }}>
-                      <input
-                        type="checkbox"
-                        checked={selected.size === tickets.length && tickets.length > 0}
-                        onChange={toggleAll}
-                        style={{ width:'auto' }}
-                      />
-                    </th>
+                    {isAdmin && (
+                      <th style={{ width:'36px', position:'sticky', left:0, zIndex:6, background:'var(--bg)' }}>
+                        <input
+                          type="checkbox"
+                          checked={selected.size === tickets.length && tickets.length > 0}
+                          onChange={toggleAll}
+                          style={{ width:'auto' }}
+                        />
+                      </th>
+                    )}
                     <th>Date</th>
                     <th>Task Owner</th>
                     <th>Ticket #</th>
@@ -338,17 +340,19 @@ export default function DashboardPage() {
                           The left/right border provides the visual selection cue
                           on the sticky cells themselves.
                         */}
-                        <td style={{
-                          position: 'sticky',
-                          left: 0,
-                          background: stickyBg(isSelected),
-                          zIndex: 4,
-                          borderLeft: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
-                          transition: 'border-color 0.15s',
-                        }}>
-                          <input type="checkbox" checked={isSelected}
-                            onChange={() => toggleSelect(ticket.id)} style={{ width:'auto' }} />
-                        </td>
+                        {isAdmin && (
+                          <td style={{
+                            position: 'sticky',
+                            left: 0,
+                            background: stickyBg(isSelected),
+                            zIndex: 4,
+                            borderLeft: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
+                            transition: 'border-color 0.15s',
+                          }}>
+                            <input type="checkbox" checked={isSelected}
+                              onChange={() => toggleSelect(ticket.id)} style={{ width:'auto' }} />
+                          </td>
+                        )}
 
                         <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
                           {ticket.entry_date?.slice(0,10) || '—'}
@@ -403,7 +407,7 @@ export default function DashboardPage() {
 
                         <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.action}</td>
 
-                        {/* FIX: Actions sticky cell — always opaque background, right border for selection cue */}
+                        {/* Actions sticky cell — always opaque background, right border for selection cue */}
                         <td style={{
                           position: 'sticky', right: 0,
                           background: stickyBg(isSelected), zIndex: 4,
@@ -411,13 +415,24 @@ export default function DashboardPage() {
                           transition: 'border-color 0.15s',
                         }}>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">
-                              📝
-                            </button>
-                            {user?.role === 'admin' && <>
-                              <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
-                              <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
-                              {ticket.position_id && (
+                            {isAdmin ? (
+                              <>
+                                <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">📝</button>
+                                <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
+                                <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
+                                {ticket.position_id && (
+                                  <Link
+                                    to={`/positions/${ticket.position_id}`}
+                                    className="btn btn-ghost btn-xs"
+                                    title="Open Board"
+                                    style={{ textDecoration: 'none' }}
+                                  >
+                                    📋
+                                  </Link>
+                                )}
+                              </>
+                            ) : (
+                              ticket.position_id && (
                                 <Link
                                   to={`/positions/${ticket.position_id}`}
                                   className="btn btn-ghost btn-xs"
@@ -426,8 +441,8 @@ export default function DashboardPage() {
                                 >
                                   📋
                                 </Link>
-                              )}
-                            </>}
+                              )
+                            )}
                           </div>
                         </td>
                       </tr>
