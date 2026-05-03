@@ -73,7 +73,10 @@ router.post('/refresh', async (req, res, next) => {
 router.get('/me', authMiddleware, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      'SELECT id, name, email, role, created_at FROM users WHERE id = $1',
+      `SELECT id, name, email, role, created_at,
+              date_override_enabled,
+              date_override_expires_at
+       FROM users WHERE id = $1`,
       [req.user.id]
     );
     res.json(rows[0]);
