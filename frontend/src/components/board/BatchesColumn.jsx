@@ -8,39 +8,61 @@ import {
   columnStyle, headerStyle, badgeStyle, cardStyle, emptyStyle, overlayStyle, popupStyle,
 } from './ScreeningColumn';
 
-function DraggableCandidate({ candidate, batchId }) {
+function DraggableCandidate({ candidate, batchId, positionId, isAdmin, qc }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `candidate-${candidate.id}`,
     data: { candidateId: candidate.id, candidateName: candidate.name, sourceStage: 'batch', batchId },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/positions/${positionId}/batches/${batchId}/candidates/${candidate.id}`),
+    onSuccess: () => { qc.invalidateQueries(['board', positionId]); toast.success('Removed'); },
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed'),
+  });
+
   return (
     <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
       style={{
         ...cardStyle,
-        cursor: 'grab',
         opacity: isDragging ? 0.4 : 1,
-        transform: transform
-          ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-          : undefined,
+        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         marginBottom: '4px',
         padding: '7px 10px',
         fontSize: '0.8rem',
         userSelect: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
       }}
     >
-      👤 {candidate.name}
+      <span
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
+        style={{ cursor: 'grab', flex: 1 }}
+      >
+        👤 {candidate.name}
+      </span>
+      {isAdmin && (
+        <button
+          className="btn btn-danger btn-xs"
+          style={{ padding: '1px 4px', fontSize: '0.68rem', flexShrink: 0 }}
+          onClick={() => deleteMutation.mutate()}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          🗑
+        </button>
+      )}
     </div>
   );
 }
 
-function BatchCard({ batch, positionId, qc }) {
+function BatchCard({ batch, positionId, stagedIds, isAdmin, qc }) {
   const [expanded, setExpanded] = useState(true);
   const [showAddCandidate, setShowAddCandidate] = useState(false);
   const [candidateName, setCandidateName] = useState('');
+
+  const visibleCandidates = batch.candidates.filter(c => !stagedIds.has(c.id));
 
   const addCandidateMutation = useMutation({
     mutationFn: (name) => api.post(`/positions/${positionId}/batches/${batch.id}/candidates`, { name }).then(r => r.data),
@@ -54,6 +76,12 @@ function BatchCard({ batch, positionId, qc }) {
     onError: (err) => toast.error(err.response?.data?.error || 'Failed'),
   });
 
+  const deleteBatchMutation = useMutation({
+    mutationFn: () => api.delete(`/positions/${positionId}/batches/${batch.id}`),
+    onSuccess: () => { qc.invalidateQueries(['board', positionId]); toast.success('Batch deleted'); },
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed'),
+  });
+
   return (
     <div style={{ ...cardStyle, padding: '10px', marginBottom: '8px' }}>
       <div
@@ -62,15 +90,24 @@ function BatchCard({ batch, positionId, qc }) {
       >
         <span style={{ fontSize: '0.8rem' }}>{expanded ? '▼' : '▶'}</span>
         <span style={{ fontWeight: 600, fontSize: '0.84rem', flex: 1 }}>{batch.name}</span>
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>{batch.candidates.length}</span>
+        <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>{visibleCandidates.length}</span>
+        {isAdmin && (
+          <button
+            className="btn btn-danger btn-xs"
+            style={{ padding: '1px 5px', fontSize: '0.7rem' }}
+            onClick={e => { e.stopPropagation(); deleteBatchMutation.mutate(); }}
+          >
+            🗑
+          </button>
+        )}
       </div>
 
       {expanded && (
         <div style={{ paddingLeft: '4px' }}>
-          {batch.candidates.map(c => (
-            <DraggableCandidate key={c.id} candidate={c} batchId={batch.id} />
+          {visibleCandidates.map(c => (
+            <DraggableCandidate key={c.id} candidate={c} batchId={batch.id} positionId={positionId} isAdmin={isAdmin} qc={qc} />
           ))}
-          {batch.candidates.length === 0 && (
+          {visibleCandidates.length === 0 && (
             <p style={{ ...emptyStyle, padding: '8px' }}>No candidates yet</p>
           )}
 
@@ -113,12 +150,13 @@ function BatchCard({ batch, positionId, qc }) {
   );
 }
 
-export default function BatchesColumn({ positionId, batches }) {
+export default function BatchesColumn({ positionId, batches, stages, isAdmin }) {
   const qc = useQueryClient();
   const [showPanel, setShowPanel] = useState(false);
   const [batchName, setBatchName] = useState('');
 
-  const totalCandidates = batches.reduce((sum, b) => sum + b.candidates.length, 0);
+  const stagedIds = new Set((stages || []).map(s => s.candidate_id));
+  const totalVisible = batches.reduce((sum, b) => sum + b.candidates.filter(c => !stagedIds.has(c.id)).length, 0);
 
   const addBatchMutation = useMutation({
     mutationFn: (name) => api.post(`/positions/${positionId}/batches`, { name }).then(r => r.data),
@@ -137,14 +175,14 @@ export default function BatchesColumn({ positionId, batches }) {
       <div style={{ ...columnStyle, width: '260px', minWidth: '260px' }}>
         <div style={headerStyle}>
           <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>Batches</span>
-          <span style={badgeStyle}>{totalCandidates}</span>
+          <span style={badgeStyle}>{totalVisible}</span>
           <button className="btn btn-ghost btn-xs" style={{ marginLeft: 'auto' }} onClick={() => setShowPanel(true)}>
             +
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
           {batches.map(batch => (
-            <BatchCard key={batch.id} batch={batch} positionId={positionId} qc={qc} />
+            <BatchCard key={batch.id} batch={batch} positionId={positionId} stagedIds={stagedIds} isAdmin={isAdmin} qc={qc} />
           ))}
           {batches.length === 0 && <p style={emptyStyle}>No batches yet</p>}
         </div>

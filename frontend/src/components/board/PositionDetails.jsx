@@ -3,6 +3,20 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
+function Field({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontWeight: 600,
+        textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
+        {label}
+      </div>
+      <div style={{ fontSize: '0.88rem', color: 'var(--text-1)' }}>
+        {value || '—'}
+      </div>
+    </div>
+  );
+}
+
 export default function PositionDetails({ position, positionId }) {
   const qc = useQueryClient();
 
@@ -17,6 +31,21 @@ export default function PositionDetails({ position, positionId }) {
   });
 
   const isFilled = position.board_status === 'filled';
+  const managementType = position.position_management_type || position.management_type || null;
+
+  const fields = [
+    ['Department',          position.department_name],
+    ['Country & Company',   position.country_company_label],
+    ['Management Type',     managementType],
+    ['Ultimate HM',         position.ultimate_hm_name],
+    ['Direct HM',           position.direct_hm_name],
+    ['Candidates Required', position.required_candidates],
+    ['Ticket Count',        position.ticket_count],
+    ['Ticket Status',       position.ticket_status],
+    ['Ticket Type',         position.ticket_type],
+    ['Action',              position.action],
+    ['Sub-Action',          position.sub_action],
+  ].filter(([, v]) => v !== undefined && v !== null && v !== '');
 
   return (
     <div style={{
@@ -56,27 +85,12 @@ export default function PositionDetails({ position, positionId }) {
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
         gap: '12px',
         marginTop: '16px',
       }}>
-        {[
-          ['Department',       position.department_name],
-          ['Country & Company', position.country_company_label],
-          ['Management Type',  position.management_type],
-          ['Ultimate HM',      position.ultimate_hm_name],
-          ['Direct HM',        position.direct_hm_name],
-          ['Candidates Required', position.required_candidates],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontWeight: 600,
-              textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
-              {label}
-            </div>
-            <div style={{ fontSize: '0.88rem', color: 'var(--text-1)' }}>
-              {value || '—'}
-            </div>
-          </div>
+        {fields.map(([label, value]) => (
+          <Field key={label} label={label} value={value} />
         ))}
       </div>
 

@@ -8,15 +8,22 @@ import {
   columnStyle, headerStyle, badgeStyle, cardStyle, emptyStyle, overlayStyle, popupStyle,
 } from './ScreeningColumn';
 
-function DraggableStageCard({ stage, onEditResult }) {
+function DraggableStageCard({ stage, onEditResult, positionId, isAdmin }) {
+  const qc = useQueryClient();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `candidate-${stage.candidate_id}`,
+    id: `stage-${stage.candidate_id}`,
     data: {
       candidateId: stage.candidate_id,
       candidateName: stage.candidate_name,
       sourceStage: stage.stage,
       stageId: stage.id,
     },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/positions/${positionId}/stages/${stage.id}`),
+    onSuccess: () => { qc.invalidateQueries(['board', positionId]); toast.success('Removed from stage'); },
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed'),
   });
 
   return (
@@ -34,7 +41,19 @@ function DraggableStageCard({ stage, onEditResult }) {
         userSelect: 'none',
       }}
     >
-      <div style={{ fontWeight: 600, fontSize: '0.84rem' }}>👤 {stage.candidate_name}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ fontWeight: 600, fontSize: '0.84rem' }}>👤 {stage.candidate_name}</div>
+        {isAdmin && (
+          <button
+            className="btn btn-danger btn-xs"
+            style={{ padding: '1px 4px', fontSize: '0.68rem' }}
+            onClick={e => { e.stopPropagation(); deleteMutation.mutate(); }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            🗑
+          </button>
+        )}
+      </div>
       {stage.assessment_level && (
         <div style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: '3px' }}>
           Level: {stage.assessment_level}
@@ -127,7 +146,7 @@ function EditResultPopup({ stage, positionId, onClose }) {
   );
 }
 
-export function AssessmentColumn({ positionId, stages }) {
+export function AssessmentColumn({ positionId, stages, isAdmin }) {
   const [editingStage, setEditingStage] = useState(null);
   const candidates = stages.filter(s => s.stage === 'assessment');
 
@@ -139,6 +158,8 @@ export function AssessmentColumn({ positionId, stages }) {
             key={s.id}
             stage={s}
             onEditResult={setEditingStage}
+            positionId={positionId}
+            isAdmin={isAdmin}
           />
         ))}
         {candidates.length === 0 && <p style={emptyStyle}>Drag candidates here</p>}
@@ -154,31 +175,31 @@ export function AssessmentColumn({ positionId, stages }) {
   );
 }
 
-export function TechnicalInterviewColumn({ stages }) {
+export function TechnicalInterviewColumn({ stages, positionId, isAdmin }) {
   const candidates = stages.filter(s => s.stage === 'technical_interview');
   return (
     <DroppableColumn stage="technical_interview" label="Tech Interview" count={candidates.length}>
       {candidates.map(s => (
-        <DraggableStageCard key={s.id} stage={s} />
+        <DraggableStageCard key={s.id} stage={s} positionId={positionId} isAdmin={isAdmin} />
       ))}
       {candidates.length === 0 && <p style={emptyStyle}>Drag candidates here</p>}
     </DroppableColumn>
   );
 }
 
-export function OfferColumn({ stages }) {
+export function OfferColumn({ stages, positionId, isAdmin }) {
   const candidates = stages.filter(s => s.stage === 'offer');
   return (
     <DroppableColumn stage="offer" label="Offer" count={candidates.length}>
       {candidates.map(s => (
-        <DraggableStageCard key={s.id} stage={s} />
+        <DraggableStageCard key={s.id} stage={s} positionId={positionId} isAdmin={isAdmin} />
       ))}
       {candidates.length === 0 && <p style={emptyStyle}>Drag candidates here</p>}
     </DroppableColumn>
   );
 }
 
-export function HiredColumn({ stages, position }) {
+export function HiredColumn({ stages, position, positionId, isAdmin }) {
   const candidates = stages.filter(s => s.stage === 'hired');
   const required   = parseInt(position.required_candidates, 10) || 0;
   const filled     = position.board_status === 'filled';
@@ -200,7 +221,7 @@ export function HiredColumn({ stages, position }) {
         </div>
       )}
       {candidates.map(s => (
-        <DraggableStageCard key={s.id} stage={s} />
+        <DraggableStageCard key={s.id} stage={s} positionId={positionId} isAdmin={isAdmin} />
       ))}
       {candidates.length === 0 && <p style={emptyStyle}>Drag candidates here</p>}
     </DroppableColumn>

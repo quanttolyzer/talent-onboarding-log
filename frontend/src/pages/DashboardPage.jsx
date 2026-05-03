@@ -380,14 +380,7 @@ export default function DashboardPage() {
                         </td>
 
                         <td style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {ticket.position_id ? (
-                            <Link
-                              to={`/positions/${ticket.position_id}`}
-                              style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}
-                            >
-                              {ticket.position_name || '—'}
-                            </Link>
-                          ) : (ticket.position_name || '—')}
+                          {ticket.position_name || '—'}
                         </td>
 
                         <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>
@@ -428,6 +421,16 @@ export default function DashboardPage() {
                             {user?.role === 'admin' && <>
                               <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
                               <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
+                              {ticket.position_id && (
+                                <Link
+                                  to={`/positions/${ticket.position_id}`}
+                                  className="btn btn-ghost btn-xs"
+                                  title="Open Board"
+                                  style={{ textDecoration: 'none' }}
+                                >
+                                  📋
+                                </Link>
+                              )}
                             </>}
                           </div>
                         </td>

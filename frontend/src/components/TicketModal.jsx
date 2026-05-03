@@ -66,10 +66,19 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
         action: value,
         sub_action: rule ? rule.sub_action_value : '',
       }));
+    } else if (field === 'position_id') {
+      const pos = (mappings?.positions || []).find(p => p.id === value);
+      setForm(f => ({
+        ...f,
+        position_id: value,
+        management_type: pos?.management_type || f.management_type,
+      }));
     } else {
       setForm(f => ({ ...f, [field]: value }));
     }
   }
+
+  const selectedPositionManagementType = (mappings?.positions || []).find(p => p.id === form.position_id)?.management_type || null;
 
   const mutation = useMutation({
     mutationFn: (data) => isEdit
@@ -169,7 +178,10 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
         </div>
         <div className="form-group">
           <label>Management Type *</label>
-          <select required value={form.management_type} onChange={e => set('management_type', e.target.value)}>
+          <select required value={form.management_type} onChange={e => set('management_type', e.target.value)}
+            disabled={!!selectedPositionManagementType}
+            title={selectedPositionManagementType ? 'Set by position' : undefined}
+          >
             <option value="">Select…</option>
             {managementTypes.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
           </select>
