@@ -524,4 +524,45 @@ function convertToCSV(data) {
   return [headers.join(','), ...csvRows].join('\n');
 }
 
+// ── VISIBILITY GRANTS ──────────────────────────────────────────
+
+router.get('/users/:id/visibility', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT g.target_id, u.name AS target_name
+       FROM user_visibility_grants g
+       JOIN users u ON u.id = g.target_id
+       WHERE g.viewer_id = $1
+       ORDER BY u.name`,
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+router.post('/users/:id/visibility', async (req, res, next) => {
+  try {
+    const { target_id } = req.body;
+    if (!target_id) return res.status(400).json({ error: 'target_id is required' });
+    const { rows } = await pool.query(
+      `INSERT INTO user_visibility_grants (viewer_id, target_id, granted_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (viewer_id, target_id) DO NOTHING
+       RETURNING *`,
+      [req.params.id, target_id, req.user.id]
+    );
+    res.status(201).json(rows[0] || { message: 'Already granted' });
+  } catch (err) { next(err); }
+});
+
+router.delete('/users/:id/visibility/:target_id', async (req, res, next) => {
+  try {
+    await pool.query(
+      `DELETE FROM user_visibility_grants WHERE viewer_id = $1 AND target_id = $2`,
+      [req.params.id, req.params.target_id]
+    );
+    res.json({ message: 'Revoked' });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
