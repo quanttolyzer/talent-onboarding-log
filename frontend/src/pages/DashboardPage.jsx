@@ -104,14 +104,6 @@ export default function DashboardPage() {
     onError: (err) => toast.error(err.response?.data?.error || 'Delete failed'),
   });
 
-  const statusMutation = useMutation({
-    mutationFn: ({ id, status }) => api.patch(`/tickets/${id}/status`, { status }),
-    onSuccess: () => {
-      qc.invalidateQueries(['tickets']);
-      toast.success('Status updated');
-    },
-    onError: (err) => toast.error(err.response?.data?.error || 'Update failed'),
-  });
 
   // ── Helpers ──────────────────────────────────────────────────
   const tickets = ticketsQuery.data?.data  || [];
