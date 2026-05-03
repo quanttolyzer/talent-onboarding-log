@@ -247,7 +247,7 @@ export default function DashboardPage() {
               <select value={filterCountry} onChange={e => { setFilterCountry(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'180px' }}>
                 <option value="">All Countries & Companies</option>
                 {(mappingsQuery.data?.country_companies || []).map(c => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
 
