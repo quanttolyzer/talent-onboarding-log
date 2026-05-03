@@ -519,25 +519,39 @@ router.get('/stats', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /api/v1/admin/activity — recent audit log entries
+// GET /api/v1/admin/activity — full unified activity feed
 router.get('/activity', async (req, res, next) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const { rows } = await pool.query(`
       SELECT
-        a.id,
+        a.id::text        AS id,
+        'change'          AS event_type,
+        a.changed_at      AS happened_at,
+        u.name            AS actor,
+        t.ticket_number,
         a.field_name,
         a.old_value,
-        a.new_value,
-        a.changed_at,
-        u.name  AS changed_by_name,
-        t.ticket_number
+        a.new_value
       FROM audit_log a
       LEFT JOIN users   u ON u.id = a.changed_by
       LEFT JOIN tickets t ON t.id = a.ticket_id
-      ORDER BY a.changed_at DESC
-      LIMIT $1
-    `, [limit]);
+
+      UNION ALL
+
+      SELECT
+        t.id::text        AS id,
+        'create'          AS event_type,
+        t.created_at      AS happened_at,
+        u.name            AS actor,
+        t.ticket_number,
+        NULL              AS field_name,
+        NULL              AS old_value,
+        NULL              AS new_value
+      FROM tickets t
+      LEFT JOIN users u ON u.id = t.task_owner_id
+
+      ORDER BY happened_at DESC
+    `);
     res.json(rows);
   } catch (err) { next(err); }
 });

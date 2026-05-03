@@ -7,7 +7,9 @@ function formatDateTime(iso) {
   });
 }
 
-function actionLabel(field, oldVal, newVal) {
+function actionLabel(entry) {
+  if (entry.event_type === 'create') return 'created ticket';
+  const { field_name: field, old_value: oldVal, new_value: newVal } = entry;
   if (!oldVal && newVal)  return `set ${field} → "${newVal}"`;
   if (oldVal && !newVal)  return `cleared ${field}`;
   return `changed ${field}: "${oldVal}" → "${newVal}"`;
@@ -142,9 +144,9 @@ export default function SystemStats({ stats, isLoading, activity = [], activityL
         marginTop: '24px',
       }}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          🕐 Recent Activity
+          🕐 Activity Log
           <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-2)', marginLeft: '4px' }}>
-            (latest {activity.length} entries)
+            {activity.length} {activity.length === 1 ? 'entry' : 'entries'}
           </span>
         </h3>
 
@@ -157,9 +159,9 @@ export default function SystemStats({ stats, isLoading, activity = [], activityL
             No activity recorded yet.
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+          <div style={{ maxHeight: '520px', overflowY: 'auto', scrollbarWidth: 'thin' }}>
             {activity.map((entry, i) => (
-              <div key={entry.id} style={{
+              <div key={`${entry.event_type}-${entry.id}-${i}`} style={{
                 display: 'grid',
                 gridTemplateColumns: '180px 140px 1fr',
                 gap: '12px',
@@ -171,12 +173,12 @@ export default function SystemStats({ stats, isLoading, activity = [], activityL
               }}>
                 {/* Date & time */}
                 <span style={{ color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                  {formatDateTime(entry.changed_at)}
+                  {formatDateTime(entry.happened_at)}
                 </span>
                 {/* User + ticket */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <span style={{ fontWeight: 600, color: 'var(--text-1)' }}>
-                    {entry.changed_by_name || 'System'}
+                    {entry.actor || 'System'}
                   </span>
                   {entry.ticket_number && (
                     <span style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>
@@ -184,9 +186,9 @@ export default function SystemStats({ stats, isLoading, activity = [], activityL
                     </span>
                   )}
                 </div>
-                {/* What changed */}
+                {/* What happened */}
                 <span style={{ color: 'var(--text-1)', wordBreak: 'break-word' }}>
-                  {actionLabel(entry.field_name, entry.old_value, entry.new_value)}
+                  {actionLabel(entry)}
                 </span>
               </div>
             ))}
