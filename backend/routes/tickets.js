@@ -420,4 +420,94 @@ router.get('/:id/audit', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── POST /tickets/:id/progress ────────────────────────────────
+const EDITABLE_FIELDS = ['ticket_status','ticket_type','candidate_count','action','sub_action','remarks'];
+
+router.post('/:id/progress', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: [ticket] } = await client.query(
+      'SELECT * FROM tickets WHERE id = $1', [req.params.id]
+    );
+    if (!ticket) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const effectiveDate = req.body.entry_date || today;
+    if (effectiveDate !== today) {
+      const { rows: [u] } = await client.query(
+        `SELECT date_override_enabled, date_override_expires_at FROM users WHERE id = $1`,
+        [req.user.id]
+      );
+      const overrideActive = u.date_override_enabled &&
+        u.date_override_expires_at &&
+        new Date(u.date_override_expires_at) > new Date();
+      if (!overrideActive) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Date override not active — entry_date must be today' });
+      }
+    }
+
+    const changes = [];
+    const setClauses = [];
+    const updateParams = [];
+    let pi = 1;
+
+    for (const field of EDITABLE_FIELDS) {
+      if (req.body[field] === undefined) continue;
+      const newVal = req.body[field];
+      const oldVal = ticket[field];
+      if (String(newVal ?? '') !== String(oldVal ?? '')) {
+        changes.push({ field, old_value: oldVal ?? '', new_value: newVal ?? '' });
+        setClauses.push(`${field} = $${pi++}`);
+        updateParams.push(newVal);
+        await writeAudit(client, ticket.id, req.user.id, field, oldVal, newVal);
+      }
+    }
+
+    if (setClauses.length > 0) {
+      updateParams.push(ticket.id);
+      await client.query(
+        `UPDATE tickets SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $${pi}`,
+        updateParams
+      );
+    }
+
+    await client.query(
+      `INSERT INTO ticket_updates (ticket_id, submitted_by, effective_date, changes)
+       VALUES ($1, $2, $3, $4)`,
+      [ticket.id, req.user.id, effectiveDate, JSON.stringify(changes)]
+    );
+
+    await client.query('COMMIT');
+    const { rows: [updated] } = await pool.query('SELECT * FROM tickets WHERE id = $1', [ticket.id]);
+    res.json(updated);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
+});
+
+// ── GET /tickets/:id/updates ──────────────────────────────────
+router.get('/:id/updates', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT tu.id, tu.submitted_at, tu.effective_date, tu.changes,
+              u.name AS submitted_by_name
+       FROM ticket_updates tu
+       LEFT JOIN users u ON u.id = tu.submitted_by
+       WHERE tu.ticket_id = $1
+       ORDER BY tu.submitted_at DESC`,
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
