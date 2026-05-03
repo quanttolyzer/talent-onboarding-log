@@ -22,7 +22,7 @@ export default function AdminPage() {
   // Recent activity query
   const activityQuery = useQuery({
     queryKey: ['admin-activity'],
-    queryFn: () => api.get('/admin/activity').then(r => r.data),
+    queryFn: () => api.get('/admin/activity?limit=50').then(r => r.data),
     refetchInterval: 30000,
   });
 
