@@ -524,6 +524,38 @@ function convertToCSV(data) {
   return [headers.join(','), ...csvRows].join('\n');
 }
 
+// ── DATE OVERRIDE ──────────────────────────────────────────────
+
+router.post('/users/:id/date-override', async (req, res, next) => {
+  try {
+    const { expires_at } = req.body;
+    if (!expires_at) return res.status(400).json({ error: 'expires_at is required' });
+    const { rows } = await pool.query(
+      `UPDATE users
+       SET date_override_enabled = true, date_override_expires_at = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, name, date_override_enabled, date_override_expires_at`,
+      [expires_at, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+router.delete('/users/:id/date-override', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE users
+       SET date_override_enabled = false, date_override_expires_at = NULL, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, name, date_override_enabled, date_override_expires_at`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
 // ── VISIBILITY GRANTS ──────────────────────────────────────────
 
 router.get('/users/:id/visibility', async (req, res, next) => {
