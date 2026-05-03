@@ -125,7 +125,7 @@ router.get('/dropdowns', async (req, res, next) => {
     const [
       positions, departments, hiringManagers, countryCompanies,
       ticketStatuses, ticketTypes, managementTypes, actions, subActions,
-      autoFillRules,
+      autoFillRules, assessmentLevels,
     ] = await Promise.all([
       pool.query('SELECT id, name, is_active, created_at FROM positions ORDER BY name'),
       pool.query('SELECT id, name, is_active, created_at FROM departments ORDER BY name'),
@@ -137,6 +137,7 @@ router.get('/dropdowns', async (req, res, next) => {
       pool.query('SELECT id, name, is_active, created_at FROM actions ORDER BY sort_order, name'),
       pool.query('SELECT id, action_name, name, is_active, created_at FROM sub_actions ORDER BY action_name, sort_order, name'),
       pool.query('SELECT id, action_value, sub_action_value, is_active, created_at FROM action_subaction_rules ORDER BY action_value'),
+      pool.query('SELECT id, name, is_active, created_at FROM assessment_levels ORDER BY sort_order, name'),
     ]);
 
     res.json({
@@ -150,6 +151,7 @@ router.get('/dropdowns', async (req, res, next) => {
       actions:                actions.rows,
       sub_actions:            subActions.rows,
       action_subaction_rules: autoFillRules.rows,
+      assessment_levels:      assessmentLevels.rows,
     });
   } catch (err) { next(err); }
 });
@@ -374,6 +376,11 @@ router.delete('/management-types/:id', mtCrud.del);
 router.post('/actions',                actCrud.create);
 router.put('/actions/:id',             actCrud.update);
 router.delete('/actions/:id',          actCrud.del);
+
+const alCrud = makeCrud('assessment_levels', 'Assessment level not found');
+router.post('/assessment-levels',        alCrud.create);
+router.put('/assessment-levels/:id',     alCrud.update);
+router.delete('/assessment-levels/:id',  alCrud.del);
 
 // ── SUB-ACTIONS ────────────────────────────────────────────────
 
