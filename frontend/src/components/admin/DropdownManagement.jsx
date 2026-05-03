@@ -17,6 +17,7 @@ const SECTIONS = [
   { id: 'actions',               label: 'Actions' },
   { id: 'sub-actions',           label: 'Sub-Actions' },
   { id: 'action-subaction-rules', label: 'Auto-fill Rules' },
+  { id: 'assessment-levels', label: 'Assessment Levels' },
 ];
 
 function dataKey(sectionId) {

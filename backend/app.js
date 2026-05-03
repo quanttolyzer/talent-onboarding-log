@@ -29,6 +29,7 @@ app.use('/api/v1/tickets',  require('./routes/tickets'));
 app.use('/api/v1/mappings', require('./routes/mappings'));
 app.use('/api/v1/users',    require('./routes/users'));
 app.use('/api/v1/admin',    require('./routes/admin'));
+app.use('/api/v1/positions', require('./routes/positions'));
 
 // ── 404 handler ───────────────────────────────────────────────
 app.use((_req, res) => {
