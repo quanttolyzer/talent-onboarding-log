@@ -14,8 +14,9 @@ const SECTIONS = [
   { id: 'ticket-statuses',   label: 'Ticket Statuses' },
   { id: 'ticket-types',      label: 'Ticket Types' },
   { id: 'management-types',  label: 'Management Types' },
-  { id: 'actions',           label: 'Actions' },
-  { id: 'sub-actions',       label: 'Sub-Actions' },
+  { id: 'actions',               label: 'Actions' },
+  { id: 'sub-actions',           label: 'Sub-Actions' },
+  { id: 'action-subaction-rules', label: 'Auto-fill Rules' },
 ];
 
 function dataKey(sectionId) {
@@ -54,9 +55,10 @@ export default function DropdownManagement() {
     onError: (e) => toast.error(e.response?.data?.error || 'Delete failed'),
   });
 
-  const isSubActions = activeSection === 'sub-actions';
-  const key          = dataKey(activeSection);
-  const allItems     = raw[key] || [];
+  const isSubActions    = activeSection === 'sub-actions';
+  const isAutoFillRules = activeSection === 'action-subaction-rules';
+  const key             = dataKey(activeSection);
+  const allItems        = raw[key] || [];
 
   // For sub-actions: filter by selected action and derive available actions from data
   const availableActions = isSubActions
@@ -72,7 +74,8 @@ export default function DropdownManagement() {
   const currentSection = SECTIONS.find(s => s.id === activeSection);
 
   function handleDelete(item) {
-    if (window.confirm(`Delete "${item.name}"? This cannot be undone.`)) {
+    const label = isAutoFillRules ? `${item.action_value} → ${item.sub_action_value}` : item.name;
+    if (window.confirm(`Delete "${label}"? This cannot be undone.`)) {
       deleteMutation.mutate(item.id);
     }
   }
@@ -133,20 +136,20 @@ export default function DropdownManagement() {
           <thead>
             <tr>
               {isSubActions && <th>Action</th>}
-              <th>Name</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Actions</th>
+              <th>{isAutoFillRules ? 'Action' : 'Name'}</th>
+              {isAutoFillRules && <th>Sub-Action Auto-fill</th>}
+              <th>Active</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {q.isLoading && (
-              <tr><td colSpan={isSubActions ? 5 : 4} style={{ textAlign:'center', padding:'40px' }}>
+              <tr><td colSpan={isSubActions ? 5 : isAutoFillRules ? 4 : 4} style={{ textAlign:'center', padding:'40px' }}>
                 <div className="spinner" style={{ margin:'0 auto' }} />
               </td></tr>
             )}
             {!q.isLoading && tableItems.length === 0 && (
-              <tr><td colSpan={isSubActions ? 5 : 4} style={{ textAlign:'center', padding:'40px', color:'var(--text-2)' }}>
+              <tr><td colSpan={isSubActions ? 5 : isAutoFillRules ? 4 : 4} style={{ textAlign:'center', padding:'40px', color:'var(--text-2)' }}>
                 No {currentSection?.label.toLowerCase()} found.
                 {isSubActions && !activeFilter && ' — Add at least one Action first.'}
               </td></tr>
@@ -154,7 +157,8 @@ export default function DropdownManagement() {
             {tableItems.map(item => (
               <tr key={item.id}>
                 {isSubActions && <td style={{ fontSize:'0.8rem', color:'var(--text-3)' }}>{item.action_name}</td>}
-                <td>{item.name}</td>
+                <td>{isAutoFillRules ? item.action_value : item.name}</td>
+                {isAutoFillRules && <td>{item.sub_action_value}</td>}
                 <td>
                   <span style={{
                     padding:'3px 8px', borderRadius:'4px', fontSize:'0.78rem', fontWeight:600,
@@ -164,11 +168,8 @@ export default function DropdownManagement() {
                     {item.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                <td style={{ fontFamily:'var(--mono)', fontSize:'0.78rem', color:'var(--text-2)' }}>
-                  {new Date(item.created_at).toLocaleDateString()}
-                </td>
-                <td>
-                  <div style={{ display:'flex', gap:'6px' }}>
+                <td style={{ textAlign: 'right' }}>
+                  <div style={{ display:'flex', gap:'6px', justifyContent: 'flex-end' }}>
                     <button className="btn btn-ghost btn-xs" onClick={() => setEditing(item)}>✏️</button>
                     <button className="btn btn-danger btn-xs" onClick={() => handleDelete(item)}>🗑️</button>
                   </div>
@@ -185,6 +186,7 @@ export default function DropdownManagement() {
           section={activeSection}
           sectionLabel={currentSection?.label || ''}
           isSubActions={isSubActions}
+          isAutoFillRules={isAutoFillRules}
           defaultActionName={activeFilter}
           availableActions={availableActions}
           isLoading={createMutation.isPending || createMutation.isLoading}
@@ -198,6 +200,7 @@ export default function DropdownManagement() {
         <EditModal
           item={editing}
           isSubActions={isSubActions}
+          isAutoFillRules={isAutoFillRules}
           isLoading={updateMutation.isPending || updateMutation.isLoading}
           onClose={() => setEditing(null)}
           onSubmit={(body) => updateMutation.mutate({ id: editing.id, ...body })}
@@ -207,15 +210,19 @@ export default function DropdownManagement() {
   );
 }
 
-function CreateModal({ sectionLabel, isSubActions, defaultActionName, availableActions, onClose, onSubmit, isLoading }) {
-  const [name, setName]           = useState('');
+function CreateModal({ sectionLabel, isSubActions, isAutoFillRules, defaultActionName, availableActions, onClose, onSubmit, isLoading }) {
+  const [name, setName]             = useState('');
   const [actionName, setActionName] = useState(defaultActionName || '');
+  const [newSubValue, setNewSubValue] = useState('');
 
   function handleSubmit(e) {
     e.preventDefault();
     if (isSubActions) {
       if (!actionName) return toast.error('Select an action first');
       onSubmit({ action_name: actionName, name });
+    } else if (isAutoFillRules) {
+      onSubmit({ action_value: name, sub_action_value: newSubValue });
+      setNewSubValue('');
     } else {
       onSubmit({ name });
     }
@@ -239,11 +246,24 @@ function CreateModal({ sectionLabel, isSubActions, defaultActionName, availableA
             )}
           </div>
         )}
-        <div className="form-group" style={{ marginBottom:'18px' }}>
-          <label>Name</label>
-          <input type="text" required value={name} onChange={e => setName(e.target.value)}
-            placeholder={`Enter ${sectionLabel.replace(/s$/, '').toLowerCase()} name`} autoFocus />
-        </div>
+        {isAutoFillRules ? (
+          <>
+            <div className="form-group" style={{ marginBottom:'14px' }}>
+              <label>Action Value</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Open Ticket" required />
+            </div>
+            <div className="form-group" style={{ marginBottom:'18px' }}>
+              <label>Sub-Action Value</label>
+              <input value={newSubValue} onChange={e => setNewSubValue(e.target.value)} placeholder="e.g. Active Hiring Ticket" required />
+            </div>
+          </>
+        ) : (
+          <div className="form-group" style={{ marginBottom:'18px' }}>
+            <label>Name</label>
+            <input type="text" required value={name} onChange={e => setName(e.target.value)}
+              placeholder={`Enter ${sectionLabel.replace(/s$/, '').toLowerCase()} name`} autoFocus />
+          </div>
+        )}
         <div style={{ display:'flex', gap:'10px', justifyContent:'flex-end' }}>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={isLoading}>
@@ -255,20 +275,43 @@ function CreateModal({ sectionLabel, isSubActions, defaultActionName, availableA
   );
 }
 
-function EditModal({ item, isSubActions, onClose, onSubmit, isLoading }) {
-  const [name, setName]       = useState(item.name);
-  const [isActive, setActive] = useState(item.is_active);
+function EditModal({ item, isSubActions, isAutoFillRules, onClose, onSubmit, isLoading }) {
+  const [name, setName]           = useState(item.name || item.action_value || '');
+  const [editSubValue, setEditSubValue] = useState(item.sub_action_value || '');
+  const [isActive, setActive]     = useState(item.is_active);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (isAutoFillRules) {
+      onSubmit({ action_value: name, sub_action_value: editSubValue, is_active: isActive });
+    } else {
+      onSubmit({ name, is_active: isActive });
+    }
+  }
 
   return (
     <Overlay onClose={onClose}>
       <h3 style={{ margin:'0 0 18px 0' }}>
-        Edit {isSubActions ? `Sub-Action (${item.action_name})` : 'Item'}
+        Edit {isSubActions ? `Sub-Action (${item.action_name})` : isAutoFillRules ? 'Auto-fill Rule' : 'Item'}
       </h3>
-      <form onSubmit={e => { e.preventDefault(); onSubmit({ name, is_active: isActive }); }}>
-        <div className="form-group" style={{ marginBottom:'14px' }}>
-          <label>Name</label>
-          <input type="text" required value={name} onChange={e => setName(e.target.value)} autoFocus />
-        </div>
+      <form onSubmit={handleSubmit}>
+        {isAutoFillRules ? (
+          <>
+            <div className="form-group" style={{ marginBottom:'14px' }}>
+              <label>Action Value</label>
+              <input type="text" required value={name} onChange={e => setName(e.target.value)} autoFocus />
+            </div>
+            <div className="form-group" style={{ marginBottom:'14px' }}>
+              <label>Sub-Action Value</label>
+              <input type="text" required value={editSubValue} onChange={e => setEditSubValue(e.target.value)} />
+            </div>
+          </>
+        ) : (
+          <div className="form-group" style={{ marginBottom:'14px' }}>
+            <label>Name</label>
+            <input type="text" required value={name} onChange={e => setName(e.target.value)} autoFocus />
+          </div>
+        )}
         <div className="form-group" style={{ marginBottom:'18px' }}>
           <label style={{ display:'flex', alignItems:'center', gap:'8px', textTransform:'none', letterSpacing:0 }}>
             <input type="checkbox" checked={isActive} onChange={e => setActive(e.target.checked)} />
