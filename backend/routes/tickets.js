@@ -43,9 +43,15 @@ router.get('/', async (req, res, next) => {
     if (search) {
       conditions.push(`(
         t.ticket_number ILIKE $${p} OR
-        t.remarks ILIKE $${p} OR
-        t.sub_action ILIKE $${p} OR
-        u.name ILIKE $${p}
+        t.action        ILIKE $${p} OR
+        t.sub_action    ILIKE $${p} OR
+        t.remarks       ILIKE $${p} OR
+        u.name          ILIKE $${p} OR
+        pos.name        ILIKE $${p} OR
+        dep.name        ILIKE $${p} OR
+        uhm.name        ILIKE $${p} OR
+        dhm.name        ILIKE $${p} OR
+        cc.label        ILIKE $${p}
       )`);
       params.push(`%${search}%`); p++;
     }
@@ -58,10 +64,26 @@ router.get('/', async (req, res, next) => {
     if (entry_date_from) { conditions.push(`t.entry_date >= $${p++}`);    params.push(entry_date_from); }
     if (entry_date_to)   { conditions.push(`t.entry_date <= $${p++}`);    params.push(entry_date_to); }
 
+    if (req.user.role !== 'admin') {
+      conditions.push(`t.task_owner_id IN (
+        SELECT $${p}::uuid
+        UNION
+        SELECT target_id FROM user_visibility_grants WHERE viewer_id = $${p}::uuid
+      )`);
+      params.push(req.user.id); p++;
+    }
+
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const countRes = await pool.query(
-      `SELECT COUNT(*) FROM tickets t LEFT JOIN users u ON u.id = t.task_owner_id ${where}`,
+      `SELECT COUNT(*) FROM tickets t
+   LEFT JOIN users u              ON u.id   = t.task_owner_id
+   LEFT JOIN positions pos        ON pos.id  = t.position_id
+   LEFT JOIN departments dep      ON dep.id  = t.department_id
+   LEFT JOIN hiring_managers uhm  ON uhm.id  = t.ultimate_hm_id
+   LEFT JOIN hiring_managers dhm  ON dhm.id  = t.direct_hm_id
+   LEFT JOIN country_companies cc ON cc.id   = t.country_company_id
+   ${where}`,
       params
     );
     const total = parseInt(countRes.rows[0].count, 10);
