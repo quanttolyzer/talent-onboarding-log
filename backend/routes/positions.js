@@ -30,8 +30,8 @@ router.get('/:id/board', async (req, res, next) => {
         COALESCE(MAX(dhm.name), '')                AS direct_hm_name,
         COALESCE(MAX(t.candidate_count), 0)        AS required_candidates,
         COUNT(DISTINCT t.id)                       AS ticket_count,
-        COALESCE(MAX(t.ticket_status), '')         AS ticket_status,
-        COALESCE(MAX(t.ticket_type), '')           AS ticket_type,
+        COALESCE(MAX(t.ticket_status::text), '')   AS ticket_status,
+        COALESCE(MAX(t.ticket_type::text), '')     AS ticket_type,
         COALESCE(MAX(t.action), '')                AS action,
         COALESCE(MAX(t.sub_action), '')            AS sub_action
       FROM positions p
