@@ -139,7 +139,7 @@ export default function DashboardPage() {
     }
   }
 
-  const COL_COUNT = 16;
+  const COL_COUNT = 15;
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
       </header>
 
       {/* ── Main ── */}
-      <main style={{ flex:1, padding:'24px', maxWidth:'100%', overflow:'hidden' }}>
+      <main style={{ flex:1, padding:'24px', maxWidth:'100%', overflow:'visible' }}>
 
         {/* ── Tabs ── */}
         <div style={{ display:'flex', gap:'4px', marginBottom:'24px', borderBottom:'1px solid var(--border)' }}>
@@ -275,13 +275,11 @@ export default function DashboardPage() {
             {/* ── Table ── */}
             <div style={{
               overflowX: 'auto',
-              overflowY: 'auto',
-              maxHeight: 'calc(100vh - 300px)',
               borderRadius: 'var(--radius)',
               border: '1px solid var(--border)',
               scrollbarWidth: 'thin',
             }}>
-              <table className="data-table" style={{ minWidth: '1800px' }}>
+              <table className="data-table" style={{ minWidth: '1720px' }}>
                 <thead>
                   <tr>
                     {/* FIX: thead sticky checkbox cell — always opaque */}
@@ -307,8 +305,6 @@ export default function DashboardPage() {
                     <th>Country & Company</th>
                     <th style={{ textAlign:'center' }}>Candidates</th>
                     <th>Action</th>
-                    {/* FIX: thead sticky actions cell — always opaque */}
-                    <th style={{ position:'sticky', right:0, zIndex:6, background:'var(--bg)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -413,24 +409,6 @@ export default function DashboardPage() {
                         <td style={{ textAlign:'center' }}>{ticket.candidate_count}</td>
 
                         <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.action}</td>
-
-                        {/* FIX: Actions sticky cell — always opaque background, right border for selection cue */}
-                        <td style={{
-                          position: 'sticky', right: 0,
-                          background: stickyBg(isSelected), zIndex: 4,
-                          borderRight: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
-                          transition: 'border-color 0.15s',
-                        }}>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">
-                              📝
-                            </button>
-                            {user?.role === 'admin' && <>
-                              <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
-                              <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
-                            </>}
-                          </div>
-                        </td>
 
                       </tr>
                     );
