@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -52,7 +52,23 @@ export default function DashboardPage() {
   // ── Top scrollbar mirror ─────────────────────────────────────
   const topScrollRef  = useRef(null);
   const tableWrapRef  = useRef(null);
+  const spacerRef     = useRef(null);
   const isSyncing     = useRef(false);
+
+  // Keep the spacer width exactly equal to the table wrapper's real scrollWidth
+  // so both scroll bars have identical ranges.
+  useEffect(() => {
+    const wrap = tableWrapRef.current;
+    if (!wrap) return;
+    const update = () => {
+      if (spacerRef.current) spacerRef.current.style.width = wrap.scrollWidth + 'px';
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, []);
+
   function syncFromTop() {
     if (isSyncing.current) return;
     isSyncing.current = true;
@@ -297,7 +313,7 @@ export default function DashboardPage() {
               onScroll={syncFromTop}
               style={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', marginBottom: '2px' }}
             >
-              <div style={{ minWidth: '1720px', height: '1px' }} />
+              <div ref={spacerRef} style={{ height: '1px' }} />
             </div>
             <div
               ref={tableWrapRef}
