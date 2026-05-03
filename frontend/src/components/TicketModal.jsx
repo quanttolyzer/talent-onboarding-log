@@ -10,7 +10,7 @@ function empty() {
     task_owner_id:      '',
     ticket_number:      '',
     ticket_type:        '',
-    ticket_status:      'On-hold',
+    ticket_status:      '',
     ticket_date:        '',
     position_id:        '',
     management_type:    '',
@@ -175,6 +175,7 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
         <div className="form-group">
           <label>Ticket Status *</label>
           <select required value={form.ticket_status} onChange={e => set('ticket_status', e.target.value)}>
+            <option value="">Select…</option>
             {filteredStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
           </select>
         </div>
