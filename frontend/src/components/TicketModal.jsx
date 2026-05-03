@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 
 function empty() {
   return {
@@ -26,6 +27,12 @@ function empty() {
 
 export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }) {
   const isEdit = mode === 'edit';
+  const user = useAuthStore((s) => s.user);
+  const canEditDate = user?.role === 'admin' || (
+    user?.date_override_enabled === true &&
+    user?.date_override_expires_at &&
+    new Date(user.date_override_expires_at) > new Date()
+  );
 
   const [form, setForm] = useState(() => {
     if (isEdit && ticket) {
@@ -53,7 +60,12 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
 
   function set(field, value) {
     if (field === 'action') {
-      setForm(f => ({ ...f, action: value, sub_action: '' }));
+      const rule = (mappings?.action_subaction_rules || []).find(r => r.action_value === value);
+      setForm(f => ({
+        ...f,
+        action: value,
+        sub_action: rule ? rule.sub_action_value : '',
+      }));
     } else {
       setForm(f => ({ ...f, [field]: value }));
     }
@@ -99,7 +111,21 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
       <div className="form-grid form-grid-3" style={{ marginBottom:'18px' }}>
         <div className="form-group">
           <label>Date *</label>
-          <input type="date" required value={form.entry_date} onChange={e => set('entry_date', e.target.value)} />
+          {canEditDate ? (
+            <input
+              type="date"
+              value={form.entry_date}
+              onChange={e => set('entry_date', e.target.value)}
+              required
+            />
+          ) : (
+            <input
+              type="date"
+              value={form.entry_date}
+              readOnly
+              style={{ opacity: 0.7, cursor: 'not-allowed' }}
+            />
+          )}
         </div>
         <div className="form-group">
           <label>Task Owner</label>
