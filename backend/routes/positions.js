@@ -23,20 +23,20 @@ router.get('/:id/board', async (req, res, next) => {
     const { rows: [pos] } = await pool.query(`
       SELECT
         p.id, p.name, p.board_status,
-        d.name                      AS department_name,
-        cc.label                    AS country_company_label,
-        COALESCE(MAX(t.management_type), '')  AS management_type,
-        COALESCE(MAX(uhm.name), '')           AS ultimate_hm_name,
-        COALESCE(MAX(dhm.name), '')           AS direct_hm_name,
-        COALESCE(MAX(t.candidate_count), 0)   AS required_candidates
+        COALESCE(MAX(d.name), '')           AS department_name,
+        COALESCE(MAX(cc.label), '')         AS country_company_label,
+        COALESCE(MAX(t.management_type), '') AS management_type,
+        COALESCE(MAX(uhm.name), '')          AS ultimate_hm_name,
+        COALESCE(MAX(dhm.name), '')          AS direct_hm_name,
+        COALESCE(MAX(t.candidate_count), 0)  AS required_candidates
       FROM positions p
-      LEFT JOIN departments d           ON d.id = p.department_id
       LEFT JOIN tickets t               ON t.position_id = p.id
+      LEFT JOIN departments d           ON d.id = t.department_id
       LEFT JOIN hiring_managers uhm     ON uhm.id = t.ultimate_hm_id
       LEFT JOIN hiring_managers dhm     ON dhm.id = t.direct_hm_id
       LEFT JOIN country_companies cc    ON cc.id = t.country_company_id
       WHERE p.id = $1
-      GROUP BY p.id, p.name, p.board_status, d.name, cc.label
+      GROUP BY p.id, p.name, p.board_status
     `, [id]);
 
     if (!pos) return res.status(404).json({ error: 'Position not found' });
