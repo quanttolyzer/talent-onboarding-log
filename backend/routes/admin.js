@@ -519,6 +519,29 @@ router.get('/stats', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/v1/admin/activity — recent audit log entries
+router.get('/activity', async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const { rows } = await pool.query(`
+      SELECT
+        a.id,
+        a.field_name,
+        a.old_value,
+        a.new_value,
+        a.changed_at,
+        u.name  AS changed_by_name,
+        t.ticket_number
+      FROM audit_log a
+      LEFT JOIN users   u ON u.id = a.changed_by
+      LEFT JOIN tickets t ON t.id = a.ticket_id
+      ORDER BY a.changed_at DESC
+      LIMIT $1
+    `, [limit]);
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 // ── Helper ─────────────────────────────────────────────────────
 function convertToCSV(data) {
   if (data.length === 0) return '';

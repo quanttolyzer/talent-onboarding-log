@@ -19,6 +19,13 @@ export default function AdminPage() {
     refetchInterval: 30000,
   });
 
+  // Recent activity query
+  const activityQuery = useQuery({
+    queryKey: ['admin-activity'],
+    queryFn: () => api.get('/admin/activity?limit=50').then(r => r.data),
+    refetchInterval: 30000,
+  });
+
   // FIX: label no longer contains the emoji — icon renders it once
   const tabs = [
     { id: 'users',     label: 'User Management',     icon: '👥' },
@@ -110,7 +117,7 @@ export default function AdminPage() {
           {activeTab === 'dropdowns' && <DropdownManagement />}
           {activeTab === 'export'    && <DataExport />}
           {activeTab === 'stats'     && (
-            <SystemStats stats={statsQuery.data} isLoading={statsQuery.isLoading} />
+            <SystemStats stats={statsQuery.data} isLoading={statsQuery.isLoading} activity={activityQuery.data || []} activityLoading={activityQuery.isLoading} />
           )}
         </div>
       </main>
