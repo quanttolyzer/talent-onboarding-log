@@ -110,7 +110,7 @@ router.post('/entries', async (req, res, next) => {
       [board_column_id]
     );
     for (const rf of required) {
-      if (!field_values[rf.field_key]) {
+      if (field_values[rf.field_key] == null || field_values[rf.field_key] === '') {
         return res.status(400).json({ error: `Field "${rf.field_key}" is required` });
       }
     }
@@ -200,6 +200,7 @@ router.post('/advance', async (req, res, next) => {
       nextPhase = phases[0];
     } else {
       const idx = phases.findIndex(p => p.id === lastEntry.board_phase_id);
+      if (idx === -1) return res.status(400).json({ error: 'Current phase not found in board config' });
       nextPhase = phases[idx + 1];
     }
     if (!nextPhase) return res.status(400).json({ error: 'Already at the last phase' });
@@ -215,7 +216,6 @@ router.post('/advance', async (req, res, next) => {
 // POST /api/v1/tickets/:ticketId/board/phase/:phaseId  (admin: jump to specific phase)
 router.post('/phase/:phaseId', async (req, res, next) => {
   try {
-    if (!req.user) return res.status(401).json({ error: 'Authentication required' });
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
     const { ticketId, phaseId } = req.params;
     await pool.query(
