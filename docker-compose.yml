@@ -15,11 +15,13 @@ services:
       # Auto-run all migrations on first container start (idempotent IF NOT EXISTS)
       - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/00-schema.sql:ro
       - ./backend/database/add-missing-schema.sql:/docker-entrypoint-initdb.d/01-add-missing.sql:ro
-      - ./backend/database/migration-dropdown-tables.sql:/docker-entrypoint-initdb.d/02-dropdown.sql:ro
-      - ./backend/database/migration-phase1.sql:/docker-entrypoint-initdb.d/03-phase1.sql:ro
-      - ./backend/database/migration-phase2.sql:/docker-entrypoint-initdb.d/04-phase2.sql:ro
-      - ./backend/database/migration-phase3.sql:/docker-entrypoint-initdb.d/05-phase3.sql:ro
-      - ./backend/database/migration-phase4.sql:/docker-entrypoint-initdb.d/06-phase4.sql:ro
+      - ./backend/database/docker-drop-triggers.sql:/docker-entrypoint-initdb.d/02-drop-triggers.sql:ro
+      - ./backend/database/migration-dropdown-tables.sql:/docker-entrypoint-initdb.d/03-dropdown.sql:ro
+      - ./backend/database/docker-recreate-triggers.sql:/docker-entrypoint-initdb.d/04-recreate-triggers.sql:ro
+      - ./backend/database/migration-phase1.sql:/docker-entrypoint-initdb.d/05-phase1.sql:ro
+      - ./backend/database/migration-phase2.sql:/docker-entrypoint-initdb.d/06-phase2.sql:ro
+      - ./backend/database/migration-phase3.sql:/docker-entrypoint-initdb.d/07-phase3.sql:ro
+      - ./backend/database/migration-phase4.sql:/docker-entrypoint-initdb.d/08-phase4.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-talentapp} -d ${POSTGRES_DB:-talent_onboarding}"]
       interval: 10s
