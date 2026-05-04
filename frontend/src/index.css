@@ -157,29 +157,40 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 }
 
 /* ── Table ── */
-.data-table { width: max-content; min-width: 100%; border-collapse: collapse; }
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
 .data-table th {
-  background: var(--bg);
-  color: var(--text-2);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  background: var(--bg-elevated);
+  color: var(--text-3);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  padding: 10px 14px;
+  padding: 10px 12px;
   text-align: left;
   position: sticky; top: 0; z-index: 5;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 0 var(--border);
 }
 .data-table td {
-  padding: 11px 14px;
+  padding: 9px 12px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
-  font-size: 0.875rem;
+  font-size: 0.83rem;
   color: var(--text-1);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.data-table tbody tr:hover { background: rgba(255,255,255,0.025); }
-.data-table tbody tr.selected { background: rgba(99,102,241,0.08); }
+.data-table tbody tr { transition: background 0.12s; }
+.data-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+.data-table tbody tr.selected { background: var(--bg-selected); }
+.data-table tbody tr:last-child td { border-bottom: none; }
 
 /* ── Form grid ── */
 .form-grid { display: grid; gap: 18px; }

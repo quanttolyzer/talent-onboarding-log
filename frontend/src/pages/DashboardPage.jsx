@@ -173,7 +173,7 @@ export default function DashboardPage() {
     }
   }
 
-  const COL_COUNT = isAdmin ? 14 : 13;
+  const COL_COUNT = isAdmin ? 15 : 14;
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
@@ -317,12 +317,28 @@ export default function DashboardPage() {
               border: '1px solid var(--border)',
               scrollbarWidth: 'thin',
             }}>
-              <table className="data-table" style={{ minWidth: '1580px' }}>
+              <table className="data-table" style={{ width: isAdmin ? '1760px' : '1718px' }}>
+                <colgroup>
+                  {isAdmin && <col style={{ width: '42px' }} />}
+                  <col style={{ width: '98px' }} />
+                  <col style={{ width: '124px' }} />
+                  <col style={{ width: '128px' }} />
+                  <col style={{ width: '124px' }} />
+                  <col style={{ width: '124px' }} />
+                  <col style={{ width: '98px' }} />
+                  <col style={{ width: '176px' }} />
+                  <col style={{ width: '108px' }} />
+                  <col style={{ width: '144px' }} />
+                  <col style={{ width: '144px' }} />
+                  <col style={{ width: '144px' }} />
+                  <col style={{ width: '152px' }} />
+                  <col style={{ width: '82px' }} />
+                  <col style={{ width: '112px' }} />
+                </colgroup>
                 <thead>
                   <tr>
-                    {/* FIX: thead sticky checkbox cell — always opaque */}
                     {isAdmin && (
-                      <th style={{ width:'36px', position:'sticky', left:0, zIndex:6, background:'var(--bg)' }}>
+                      <th style={{ position:'sticky', left:0, zIndex:6, background:'var(--bg-elevated)' }}>
                         <input
                           type="checkbox"
                           checked={selected.size === tickets.length && tickets.length > 0}
@@ -342,8 +358,9 @@ export default function DashboardPage() {
                     <th>Department</th>
                     <th>Ultimate HM</th>
                     <th>Direct HM</th>
-                    <th>Country & Company</th>
-                    <th style={{ textAlign:'center' }}>Candidates</th>
+                    <th>Country &amp; Co.</th>
+                    <th style={{ textAlign:'center' }}>Cands.</th>
+                    <th style={{ textAlign:'right', position:'sticky', right:0, zIndex:6, background:'var(--bg-elevated)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -366,17 +383,6 @@ export default function DashboardPage() {
                     return (
                       <tr key={ticket.id} className={isSelected ? 'selected' : ''}>
 
-                        {/*
-                          FIX: Sticky cells MUST use a fully opaque background.
-                          Previously rgba(99,102,241,0.08) was transparent, which let
-                          scrolled content from other columns bleed through the cell.
-                          stickyBg() returns var(--bg-surface) always, with
-                          var(--bg-selected) override when the row is selected.
-                          Add --bg-selected to your global CSS, e.g.:
-                            --bg-selected: #1e2035;   (dark theme)
-                          The left/right border provides the visual selection cue
-                          on the sticky cells themselves.
-                        */}
                         {isAdmin && (
                           <td style={{
                             position: 'sticky',
@@ -384,6 +390,7 @@ export default function DashboardPage() {
                             background: stickyBg(isSelected),
                             zIndex: 4,
                             borderLeft: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
+                            borderRight: '1px solid var(--border)',
                             transition: 'border-color 0.15s',
                           }}>
                             <input type="checkbox" checked={isSelected}
@@ -391,65 +398,53 @@ export default function DashboardPage() {
                           </td>
                         )}
 
-                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
+                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.78rem', color:'var(--text-2)' }}>
                           {ticket.entry_date?.slice(0,10) || '—'}
                         </td>
 
-                        <td style={{ whiteSpace:'nowrap' }}>{ticket.task_owner_name || '—'}</td>
+                        <td>{ticket.task_owner_name || '—'}</td>
 
-                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', color:'var(--primary)', whiteSpace:'nowrap' }}>
+                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.78rem', color:'var(--primary)', fontWeight:600 }}>
                           {ticket.ticket_number}
                         </td>
 
-                        <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.ticket_type}</td>
+                        <td style={{ color:'var(--text-2)' }}>{ticket.ticket_type}</td>
 
-                        <td style={{ whiteSpace:'nowrap' }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                        <td style={{ overflow:'visible' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
                             <StatusBadge status={ticket.ticket_status} />
                             {ticket.is_group_master && (
-                              <span title="Group master — controls status for all cloned rows" style={{ fontSize:'12px', cursor:'help' }}>⭐</span>
+                              <span title="Group master" style={{ fontSize:'11px', cursor:'help', flexShrink:0 }}>⭐</span>
                             )}
                           </div>
                         </td>
 
-                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.8rem', whiteSpace:'nowrap' }}>
+                        <td style={{ fontFamily:'var(--mono)', fontSize:'0.78rem', color:'var(--text-2)' }}>
                           {ticket.ticket_date?.slice(0,10) || '—'}
                         </td>
 
-                        <td style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {ticket.position_name || '—'}
-                        </td>
+                        <td>{ticket.position_name || '—'}</td>
 
-                        <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>
-                          {ticket.management_type || '—'}
-                        </td>
+                        <td style={{ color:'var(--text-2)' }}>{ticket.management_type || '—'}</td>
 
-                        <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {ticket.department_name || '—'}
-                        </td>
+                        <td>{ticket.department_name || '—'}</td>
 
-                        <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {ticket.ultimate_hm_name || '—'}
-                        </td>
+                        <td>{ticket.ultimate_hm_name || '—'}</td>
 
-                        <td style={{ maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {ticket.direct_hm_name || '—'}
-                        </td>
+                        <td>{ticket.direct_hm_name || '—'}</td>
 
-                        <td style={{ maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {ticket.country_company_label || '—'}
-                        </td>
+                        <td>{ticket.country_company_label || '—'}</td>
 
-                        <td style={{ textAlign:'center' }}>{ticket.candidate_count}</td>
+                        <td style={{ textAlign:'center', fontWeight:600 }}>{ticket.candidate_count}</td>
 
-                        {/* Actions sticky cell — always opaque background, right border for selection cue */}
                         <td style={{
                           position: 'sticky', right: 0,
                           background: stickyBg(isSelected), zIndex: 4,
                           borderRight: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
+                          borderLeft: '1px solid var(--border)',
                           transition: 'border-color 0.15s',
                         }}>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent:'flex-end' }}>
                             <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">📝</button>
                             {isAdmin && (
                               <>
