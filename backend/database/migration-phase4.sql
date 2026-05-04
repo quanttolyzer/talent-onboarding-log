@@ -56,3 +56,21 @@ CREATE TABLE IF NOT EXISTS ticket_phase_history (
   advanced_by    UUID REFERENCES users(id),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_board_columns_config       ON board_columns(board_config_id);
+CREATE INDEX IF NOT EXISTS idx_board_column_fields_column ON board_column_fields(board_column_id);
+CREATE INDEX IF NOT EXISTS idx_board_phases_config        ON board_phases(board_config_id);
+CREATE INDEX IF NOT EXISTS idx_board_entries_ticket       ON board_entries(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_board_entries_column       ON board_entries(board_column_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_phase_history_ticket ON ticket_phase_history(ticket_id);
+
+-- Uniqueness constraints
+ALTER TABLE board_column_fields
+  ADD CONSTRAINT uq_board_column_fields_key UNIQUE (board_column_id, field_key);
+
+ALTER TABLE board_columns
+  ADD CONSTRAINT uq_board_columns_position UNIQUE (board_config_id, position);
+
+ALTER TABLE board_phases
+  ADD CONSTRAINT uq_board_phases_position UNIQUE (board_config_id, position);
