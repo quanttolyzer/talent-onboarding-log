@@ -1,5 +1,6 @@
--- Docker init only: recreate trigger dropped before enum→TEXT migration.
--- ticket_status is now TEXT; the trigger logic is identical.
+-- Docker init only: restore defaults and recreate trigger after enum→TEXT migration.
+-- All enum columns are now TEXT; defaults are plain string literals.
+ALTER TABLE tickets ALTER COLUMN ticket_status SET DEFAULT 'On-hold';
 CREATE OR REPLACE FUNCTION sync_group_status()
 RETURNS TRIGGER AS $$
 BEGIN
