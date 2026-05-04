@@ -238,7 +238,7 @@ INSERT INTO users (name, email, password_hash, role)
 VALUES (
   'Admin',
   'admin@talent.internal',
-  -- This is bcrypt hash of 'Admin@123' — CHANGE THIS IMMEDIATELY
+  -- This is bcrypt hash of 'password' — CHANGE THIS IMMEDIATELY after first login
   '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
   'admin'
 );
