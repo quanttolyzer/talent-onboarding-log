@@ -141,7 +141,7 @@ CREATE TABLE tickets (
   direct_hm_id       UUID REFERENCES hiring_managers(id),
   country_company_id UUID REFERENCES country_companies(id),
   candidate_count    SMALLINT NOT NULL DEFAULT 1 CHECK (candidate_count > 0),
-  action             TEXT NOT NULL,
+  action             TEXT,
   sub_action         VARCHAR(150),
   remarks            TEXT,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),

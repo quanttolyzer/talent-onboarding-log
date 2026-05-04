@@ -60,8 +60,6 @@ function TicketDetails({ ticket }) {
     { label: 'Department',  value: ticket.department_name },
     { label: 'Management',  value: ticket.management_type },
     { label: 'Country/Co',  value: ticket.country_company_label },
-    { label: 'Action',      value: ticket.action },
-    { label: 'Sub-Action',  value: ticket.sub_action },
     { label: 'Ult. HM',     value: ticket.ultimate_hm_name },
     { label: 'Direct HM',   value: ticket.direct_hm_name },
     { label: 'Owner',       value: ticket.task_owner_name },

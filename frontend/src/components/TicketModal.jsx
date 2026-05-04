@@ -19,8 +19,6 @@ function empty() {
     direct_hm_id:       '',
     country_company_id: '',
     candidate_count:    1,
-    action:             '',
-    sub_action:         '',
     remarks:            '',
   };
 }
@@ -50,8 +48,6 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
         direct_hm_id:       ticket.direct_hm_id               || '',
         country_company_id: ticket.country_company_id         || '',
         candidate_count:    ticket.candidate_count            || 1,
-        action:             ticket.action                     || '',
-        sub_action:         ticket.sub_action                 || '',
         remarks:            ticket.remarks                    || '',
       };
     }
@@ -59,14 +55,7 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
   });
 
   function set(field, value) {
-    if (field === 'action') {
-      const rule = (mappings?.action_subaction_rules || []).find(r => r.action_value === value);
-      setForm(f => ({
-        ...f,
-        action: value,
-        sub_action: rule ? rule.sub_action_value : '',
-      }));
-    } else if (field === 'position_id') {
+    if (field === 'position_id') {
       const pos = (mappings?.positions || []).find(p => p.id === value);
       setForm(f => ({
         ...f,
@@ -118,9 +107,6 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
     return statuses;
   })();
   const managementTypes = mappings?.management_types || [];
-  const actions         = mappings?.actions          || [];
-  const allSubActions   = mappings?.sub_actions      || [];
-  const subActions      = allSubActions.filter(s => s.action_name === form.action);
   const users           = mappings?.users            || [];
   const isInline        = mode === 'add';
 
@@ -241,36 +227,11 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
           <input type="number" min="1" required value={form.candidate_count}
             onChange={e => set('candidate_count', parseInt(e.target.value) || 1)} />
         </div>
-        <div className="form-group">
-          <label>Action *</label>
-          <select required value={form.action} onChange={e => set('action', e.target.value)}>
-            <option value="">Select…</option>
-            {actions.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Sub-Action *</label>
-          <select required value={form.sub_action} onChange={e => set('sub_action', e.target.value)}
-            disabled={!form.action}>
-            <option value="">Select…</option>
-            {subActions.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-          </select>
-        </div>
-        <div className="form-group" style={{ gridColumn: isInline ? 'span 3' : undefined }}>
+        <div className="form-group" style={{ gridColumn: isInline ? 'span 2' : undefined }}>
           <label>Remarks</label>
           <input value={form.remarks} onChange={e => set('remarks', e.target.value)} placeholder="Optional notes…" />
         </div>
       </div>
-
-      {form.sub_action === 'Active Hiring Tickets' && (
-        <div style={{
-          background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.3)',
-          borderRadius:'var(--radius-sm)', padding:'12px 16px', marginBottom:'18px',
-          fontSize:'0.85rem', color:'var(--primary)',
-        }}>
-          ★ <strong>Group Master row</strong> — a Group ID will be auto-generated. Cloned rows inherit the same Group ID, and changing this row's status automatically updates all cloned rows.
-        </div>
-      )}
 
       <div style={{ display:'flex', gap:'10px', justifyContent:'flex-end' }}>
         {isEdit && <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>}

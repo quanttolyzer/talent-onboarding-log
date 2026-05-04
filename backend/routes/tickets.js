@@ -186,41 +186,27 @@ router.post('/', async (req, res, next) => {
     } = req.body;
 
     // Validate required fields
-    const required = { entry_date, ticket_number, ticket_type, ticket_date, management_type, action };
+    const required = { entry_date, ticket_number, ticket_type, ticket_date, management_type };
     const missing = Object.entries(required).filter(([, v]) => !v).map(([k]) => k);
     if (missing.length) {
       return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
     }
 
-    // Handle Group_ID for "Active Hiring Ticket"
-    let groupId = null;
-    let isGroupMaster = false;
-
-    if (sub_action === 'Active Hiring Tickets') {
-      const groupCode = generateGroupCode();
-      const groupRes = await client.query(
-        `INSERT INTO ticket_groups (group_code) VALUES ($1) RETURNING id`,
-        [groupCode]
-      );
-      groupId = groupRes.rows[0].id;
-      isGroupMaster = true;
-    }
-
     const { rows } = await client.query(`
       INSERT INTO tickets (
-        group_id, is_group_master, task_owner_id,
+        task_owner_id,
         entry_date, ticket_number, ticket_type, ticket_status, ticket_date,
         position_id, management_type, department_id, ultimate_hm_id, direct_hm_id,
-        country_company_id, candidate_count, action, sub_action, remarks
+        country_company_id, candidate_count, remarks
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
       ) RETURNING *
     `, [
-      groupId, isGroupMaster, task_owner_id,
+      task_owner_id || null,
       entry_date, ticket_number, ticket_type, ticket_status, ticket_date,
       position_id || null, management_type, department_id || null,
       ultimate_hm_id || null, direct_hm_id || null,
-      country_company_id || null, candidate_count, action, sub_action || null, remarks || null,
+      country_company_id || null, candidate_count, remarks || null,
     ]);
 
     await writeAudit(client, rows[0].id, req.user.id, 'created', null, 'new ticket');

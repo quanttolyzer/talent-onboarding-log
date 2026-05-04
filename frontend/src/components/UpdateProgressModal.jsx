@@ -21,18 +21,11 @@ export default function UpdateProgressModal({ ticket, mappings, onClose, onSaved
     ticket_status:   ticket.ticket_status || '',
     ticket_type:     ticket.ticket_type   || '',
     candidate_count: ticket.candidate_count || 1,
-    action:          ticket.action        || '',
-    sub_action:      ticket.sub_action    || '',
     remarks:         ticket.remarks       || '',
   });
 
   function set(field, value) {
-    if (field === 'action') {
-      const rule = (mappings?.action_subaction_rules || []).find(r => r.action_value === value);
-      setForm(f => ({ ...f, action: value, sub_action: rule ? rule.sub_action_value : f.sub_action }));
-    } else {
-      setForm(f => ({ ...f, [field]: value }));
-    }
+    setForm(f => ({ ...f, [field]: value }));
   }
 
   const progressMutation = useMutation({
@@ -58,9 +51,6 @@ export default function UpdateProgressModal({ ticket, mappings, onClose, onSaved
 
   const statuses   = mappings?.ticket_statuses || [];
   const types      = mappings?.ticket_types    || [];
-  const actions    = mappings?.actions         || [];
-  const allSubs    = mappings?.sub_actions     || [];
-  const subActions = allSubs.filter(s => s.action_name === form.action);
 
   const overlayStyle = {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
@@ -132,20 +122,6 @@ export default function UpdateProgressModal({ ticket, mappings, onClose, onSaved
                 <label>Candidates</label>
                 <input type="number" min="1" value={form.candidate_count}
                   onChange={e => set('candidate_count', parseInt(e.target.value, 10))} />
-              </div>
-              <div className="form-group">
-                <label>Action</label>
-                <select value={form.action} onChange={e => set('action', e.target.value)}>
-                  <option value="">— Select —</option>
-                  {actions.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Sub-Action</label>
-                <select value={form.sub_action} onChange={e => set('sub_action', e.target.value)}>
-                  <option value="">— Select —</option>
-                  {subActions.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </select>
               </div>
             </div>
             <div className="form-group" style={{ marginBottom: '20px' }}>

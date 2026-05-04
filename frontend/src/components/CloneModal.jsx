@@ -4,28 +4,16 @@ import toast from 'react-hot-toast';
 import api from '../lib/api';
 
 export default function CloneModal({ rows, mappings, onClose, onSaved }) {
-  // Pre-populate action when all source rows share the same action so the
-  // sub-action dropdown is immediately enabled on open.
-  const commonAction = rows.length > 0 && rows.every(r => r.action === rows[0].action)
-    ? (rows[0].action || '')
-    : '';
-
   const [overrides, setOverrides] = useState({
     entry_date:      new Date().toISOString().slice(0, 10),
     ticket_number:   '',
     ticket_type:     '',
     candidate_count: '',
-    action:          commonAction,
-    sub_action:      '',
     remarks:         '',
   });
 
   function set(k, v) {
-    if (k === 'action') {
-      setOverrides(o => ({ ...o, action: v, sub_action: '' }));
-    } else {
-      setOverrides(o => ({ ...o, [k]: v }));
-    }
+    setOverrides(o => ({ ...o, [k]: v }));
   }
 
   const mutation = useMutation({
@@ -39,11 +27,7 @@ export default function CloneModal({ rows, mappings, onClose, onSaved }) {
     onError: (err) => toast.error(err.response?.data?.error || 'Clone failed'),
   });
 
-  // Dynamic values from mappings
-  const ticketTypes   = mappings?.ticket_types  || [];
-  const actions       = mappings?.actions       || [];
-  const allSubActions = mappings?.sub_actions   || [];
-  const subActions    = allSubActions.filter(s => s.action_name === overrides.action);
+  const ticketTypes = mappings?.ticket_types || [];
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -117,21 +101,6 @@ export default function CloneModal({ rows, mappings, onClose, onSaved }) {
             <label>Candidates (override)</label>
             <input type="number" min="1" value={overrides.candidate_count}
               onChange={e => set('candidate_count', e.target.value)} placeholder="Keep original" />
-          </div>
-          <div className="form-group">
-            <label>Action (override)</label>
-            <select value={overrides.action} onChange={e => set('action', e.target.value)}>
-              <option value="">Keep original</option>
-              {actions.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Sub-Action (override)</label>
-            <select value={overrides.sub_action} onChange={e => set('sub_action', e.target.value)}
-              disabled={!overrides.action}>
-              <option value="">Keep original</option>
-              {subActions.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-            </select>
           </div>
           <div className="form-group" style={{ gridColumn:'span 2' }}>
             <label>Remarks (override)</label>

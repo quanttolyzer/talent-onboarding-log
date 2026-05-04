@@ -173,7 +173,7 @@ export default function DashboardPage() {
     }
   }
 
-  const COL_COUNT = isAdmin ? 15 : 14;
+  const COL_COUNT = isAdmin ? 14 : 13;
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
@@ -317,7 +317,7 @@ export default function DashboardPage() {
               border: '1px solid var(--border)',
               scrollbarWidth: 'thin',
             }}>
-              <table className="data-table" style={{ minWidth: '1720px' }}>
+              <table className="data-table" style={{ minWidth: '1580px' }}>
                 <thead>
                   <tr>
                     {/* FIX: thead sticky checkbox cell — always opaque */}
@@ -344,7 +344,6 @@ export default function DashboardPage() {
                     <th>Direct HM</th>
                     <th>Country & Company</th>
                     <th style={{ textAlign:'center' }}>Candidates</th>
-                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -442,8 +441,6 @@ export default function DashboardPage() {
                         </td>
 
                         <td style={{ textAlign:'center' }}>{ticket.candidate_count}</td>
-
-                        <td style={{ fontSize:'0.8rem', whiteSpace:'nowrap' }}>{ticket.action}</td>
 
                         {/* Actions sticky cell — always opaque background, right border for selection cue */}
                         <td style={{
