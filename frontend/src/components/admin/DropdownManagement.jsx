@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
@@ -158,8 +158,8 @@ export default function DropdownManagement() {
               </td></tr>
             )}
             {tableItems.map(item => (
-              <>
-                <tr key={item.id}>
+              <Fragment key={item.id}>
+                <tr>
                   {isSubActions && <td style={{ fontSize:'0.8rem', color:'var(--text-3)' }}>{item.action_name}</td>}
                   <td>{isAutoFillRules ? item.action_value : item.name}</td>
                   {isAutoFillRules && <td>{item.sub_action_value}</td>}
@@ -198,7 +198,7 @@ export default function DropdownManagement() {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>
