@@ -24,6 +24,7 @@ export default function DataExport() {
       const response = await api.get(`/admin/export/${selectedData}`, {
         params: { format: selectedFormat },
         responseType: selectedFormat === 'csv' ? 'blob' : 'json',
+        timeout: 60000,
       });
 
       if (selectedFormat === 'csv') {
