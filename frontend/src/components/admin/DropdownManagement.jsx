@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
+import BoardConfigPanel from './BoardConfigPanel';
 
 // All 9 sections — every one is fully editable in the DB.
 // sub-actions is special: items have action_name + name, and the tab shows
@@ -30,6 +31,7 @@ export default function DropdownManagement() {
   const [subActionFilter, setSubActionFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [boardConfigTypeId, setBoardConfigTypeId] = useState(null);
 
   const q = useQuery({
     queryKey: ['admin-dropdowns'],
@@ -156,26 +158,47 @@ export default function DropdownManagement() {
               </td></tr>
             )}
             {tableItems.map(item => (
-              <tr key={item.id}>
-                {isSubActions && <td style={{ fontSize:'0.8rem', color:'var(--text-3)' }}>{item.action_name}</td>}
-                <td>{isAutoFillRules ? item.action_value : item.name}</td>
-                {isAutoFillRules && <td>{item.sub_action_value}</td>}
-                <td>
-                  <span style={{
-                    padding:'3px 8px', borderRadius:'4px', fontSize:'0.78rem', fontWeight:600,
-                    background: item.is_active ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)',
-                    color: item.is_active ? 'var(--success)' : 'var(--danger)',
-                  }}>
-                    {item.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <div style={{ display:'flex', gap:'6px', justifyContent: 'flex-end' }}>
-                    <button className="btn btn-ghost btn-xs" onClick={() => setEditing(item)}>✏️</button>
-                    <button className="btn btn-danger btn-xs" onClick={() => handleDelete(item)}>🗑️</button>
-                  </div>
-                </td>
-              </tr>
+              <>
+                <tr key={item.id}>
+                  {isSubActions && <td style={{ fontSize:'0.8rem', color:'var(--text-3)' }}>{item.action_name}</td>}
+                  <td>{isAutoFillRules ? item.action_value : item.name}</td>
+                  {isAutoFillRules && <td>{item.sub_action_value}</td>}
+                  <td>
+                    <span style={{
+                      padding:'3px 8px', borderRadius:'4px', fontSize:'0.78rem', fontWeight:600,
+                      background: item.is_active ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)',
+                      color: item.is_active ? 'var(--success)' : 'var(--danger)',
+                    }}>
+                      {item.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display:'flex', gap:'6px', justifyContent: 'flex-end' }}>
+                      {activeSection === 'ticket-types' && (
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          title="Configure Board"
+                          onClick={() => setBoardConfigTypeId(boardConfigTypeId === item.id ? null : item.id)}
+                        >
+                          📋
+                        </button>
+                      )}
+                      <button className="btn btn-ghost btn-xs" onClick={() => setEditing(item)}>✏️</button>
+                      <button className="btn btn-danger btn-xs" onClick={() => handleDelete(item)}>🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+                {activeSection === 'ticket-types' && boardConfigTypeId === item.id && (
+                  <tr>
+                    <td colSpan={99} style={{ padding: '0 8px 12px' }}>
+                      <BoardConfigPanel
+                        ticketTypeId={item.id}
+                        onClose={() => setBoardConfigTypeId(null)}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </>
             ))}
           </tbody>
         </table>
