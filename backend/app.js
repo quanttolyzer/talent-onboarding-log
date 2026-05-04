@@ -9,6 +9,7 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://localhost',       // Docker: nginx on port 80
   'http://localhost:3000',  // Docker: alternate port
+  'http://localhost:8080',  // Docker: alternate port
 ];
 
 app.use(cors({
