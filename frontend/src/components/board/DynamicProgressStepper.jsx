@@ -13,7 +13,7 @@ export default function DynamicProgressStepper({ ticketId, phases, currentPhaseI
   const advanceMutation = useMutation({
     mutationFn: () => api.post(`/tickets/${ticketId}/board/advance`),
     onSuccess: () => {
-      qc.invalidateQueries(['ticket-board', ticketId]);
+      qc.invalidateQueries({ queryKey: ['ticket-board', ticketId] });
       toast.success('Phase advanced');
     },
     onError: err => toast.error(err.response?.data?.error || 'Failed'),
@@ -22,7 +22,7 @@ export default function DynamicProgressStepper({ ticketId, phases, currentPhaseI
   const jumpMutation = useMutation({
     mutationFn: (phaseId) => api.post(`/tickets/${ticketId}/board/phase/${phaseId}`),
     onSuccess: () => {
-      qc.invalidateQueries(['ticket-board', ticketId]);
+      qc.invalidateQueries({ queryKey: ['ticket-board', ticketId] });
       toast.success('Phase updated');
     },
     onError: err => toast.error(err.response?.data?.error || 'Failed'),
@@ -143,7 +143,7 @@ export default function DynamicProgressStepper({ ticketId, phases, currentPhaseI
             History
           </div>
           {history.map((entry, i) => (
-            <div key={i} style={{
+            <div key={entry.created_at || i} style={{
               display: 'flex', gap: '12px', alignItems: 'flex-start',
               padding: '8px 0',
               borderBottom: i < history.length - 1 ? '1px solid var(--border)' : 'none',

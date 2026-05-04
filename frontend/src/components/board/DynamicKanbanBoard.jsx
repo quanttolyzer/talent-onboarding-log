@@ -1,5 +1,5 @@
 // frontend/src/components/board/DynamicKanbanBoard.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -66,7 +66,7 @@ function DraggableCard({ entry, column, ticketId, isAdmin }) {
   const deleteMutation = useMutation({
     mutationFn: () => api.delete(`/tickets/${ticketId}/board/entries/${entry.id}`),
     onSuccess: () => {
-      qc.invalidateQueries(['ticket-board', ticketId]);
+      qc.invalidateQueries({ queryKey: ['ticket-board', ticketId] });
       toast.success('Entry removed');
     },
     onError: err => toast.error(err.response?.data?.error || 'Delete failed'),
@@ -172,7 +172,7 @@ function AddEntryPopup({ column, ticketId, onClose }) {
       field_values: values,
     }),
     onSuccess: () => {
-      qc.invalidateQueries(['ticket-board', ticketId]);
+      qc.invalidateQueries({ queryKey: ['ticket-board', ticketId] });
       toast.success('Entry added');
       onClose();
     },
@@ -216,7 +216,6 @@ function AddEntryPopup({ column, ticketId, onClose }) {
 function MovePopup({ pendingMove, targetColumn, ticketId, onClose }) {
   const qc = useQueryClient();
   const [values, setValues] = useState({});
-  const [submitted, setSubmitted] = useState(false);
 
   const mutation = useMutation({
     mutationFn: (additionalValues) => api.patch(
@@ -224,7 +223,7 @@ function MovePopup({ pendingMove, targetColumn, ticketId, onClose }) {
       { target_column_id: targetColumn.id, additional_field_values: additionalValues }
     ),
     onSuccess: () => {
-      qc.invalidateQueries(['ticket-board', ticketId]);
+      qc.invalidateQueries({ queryKey: ['ticket-board', ticketId] });
       toast.success('Entry moved');
       onClose();
     },
@@ -239,12 +238,11 @@ function MovePopup({ pendingMove, targetColumn, ticketId, onClose }) {
     f => f.is_required && !existingKeys.includes(f.field_key)
   );
 
-  // No missing required fields — fire move immediately on first render
-  if (missingRequired.length === 0 && !submitted) {
-    setSubmitted(true);
-    mutation.mutate({});
-    return null;
-  }
+  useEffect(() => {
+    if (missingRequired.length === 0) {
+      mutation.mutate({});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (missingRequired.length === 0) return null;
 
