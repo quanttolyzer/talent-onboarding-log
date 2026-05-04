@@ -148,6 +148,11 @@ router.patch('/entries/:entryId/move', async (req, res, next) => {
 
     const mergedValues = { ...entry.field_values, ...additional_field_values };
 
+    const [{ rows: [fromCol] }, { rows: [toCol] }] = await Promise.all([
+      pool.query('SELECT label FROM board_columns WHERE id = $1', [entry.board_column_id]),
+      pool.query('SELECT label FROM board_columns WHERE id = $1', [target_column_id]),
+    ]);
+
     const { rows: [updated] } = await pool.query(
       `UPDATE board_entries
        SET board_column_id = $1, field_values = $2, updated_at = now()
@@ -155,6 +160,13 @@ router.patch('/entries/:entryId/move', async (req, res, next) => {
        RETURNING id, board_column_id, field_values`,
       [target_column_id, JSON.stringify(mergedValues), entryId]
     );
+
+    await pool.query(
+      `INSERT INTO audit_log (ticket_id, changed_by, field_name, old_value, new_value)
+       VALUES ($1, $2, 'board_column', $3, $4)`,
+      [ticketId, req.user.id, fromCol?.label || '?', toCol?.label || '?']
+    );
+
     res.json(updated);
   } catch (err) { next(err); }
 });
@@ -205,10 +217,21 @@ router.post('/advance', async (req, res, next) => {
     }
     if (!nextPhase) return res.status(400).json({ error: 'Already at the last phase' });
 
+    const prevLabel = lastEntry
+      ? phases.find(p => p.id === lastEntry.board_phase_id)?.label || '?'
+      : null;
+
     await pool.query(
       'INSERT INTO ticket_phase_history (ticket_id, board_phase_id, advanced_by) VALUES ($1, $2, $3)',
       [ticketId, nextPhase.id, req.user.id]
     );
+
+    await pool.query(
+      `INSERT INTO audit_log (ticket_id, changed_by, field_name, old_value, new_value)
+       VALUES ($1, $2, 'phase', $3, $4)`,
+      [ticketId, req.user.id, prevLabel || '(start)', nextPhase.label || '?']
+    );
+
     res.json({ ok: true, phase_id: nextPhase.id });
   } catch (err) { next(err); }
 });
@@ -218,10 +241,20 @@ router.post('/phase/:phaseId', async (req, res, next) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
     const { ticketId, phaseId } = req.params;
+
+    const { rows: [phase] } = await pool.query('SELECT label FROM board_phases WHERE id = $1', [phaseId]);
+
     await pool.query(
       'INSERT INTO ticket_phase_history (ticket_id, board_phase_id, advanced_by) VALUES ($1, $2, $3)',
       [ticketId, phaseId, req.user.id]
     );
+
+    await pool.query(
+      `INSERT INTO audit_log (ticket_id, changed_by, field_name, old_value, new_value)
+       VALUES ($1, $2, 'phase', '(jump)', $3)`,
+      [ticketId, req.user.id, phase?.label || '?']
+    );
+
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

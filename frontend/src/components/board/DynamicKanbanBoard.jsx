@@ -102,13 +102,11 @@ function DraggableCard({ entry, column, ticketId, isAdmin }) {
           </button>
         )}
       </div>
-      {Object.entries(entry.field_values || {})
-        .filter(([k]) => k !== 'candidate_name')
-        .map(([k, v]) => (
-          <div key={k} style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: '3px' }}>
-            {k.replace(/_/g, ' ')}: {v || '—'}
-          </div>
-        ))}
+      {Object.entries(entry.field_values || {}).map(([k, v]) => (
+        <div key={k} style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: '3px' }}>
+          <span style={{ fontWeight: 500 }}>{k}:</span> {v || '—'}
+        </div>
+      ))}
     </div>
   );
 }
@@ -188,15 +186,12 @@ function AddEntryPopup({ column, ticketId, onClose }) {
         <form onSubmit={e => { e.preventDefault(); mutation.mutate(); }}>
           {(column.fields || []).map(field => (
             <div key={field.field_key} className="form-group" style={{ marginBottom: '12px' }}>
-              <label>
-                {field.field_key.replace(/_/g, ' ')}
-                {field.is_required && ' *'}
-              </label>
+              <label>{field.field_key}{field.is_required && ' *'}</label>
               <input
                 value={values[field.field_key] || ''}
                 onChange={e => setValues(prev => ({ ...prev, [field.field_key]: e.target.value }))}
                 required={field.is_required}
-                placeholder={field.field_key.replace(/_/g, ' ')}
+                placeholder={field.field_key}
               />
             </div>
           ))}
@@ -258,7 +253,7 @@ function MovePopup({ pendingMove, targetColumn, ticketId, onClose }) {
         }}>
           {missingRequired.map(field => (
             <div key={field.field_key} className="form-group" style={{ marginBottom: '12px' }}>
-              <label>{field.field_key.replace(/_/g, ' ')} *</label>
+              <label>{field.field_key} *</label>
               <input
                 value={values[field.field_key] || ''}
                 onChange={e => setValues(prev => ({ ...prev, [field.field_key]: e.target.value }))}

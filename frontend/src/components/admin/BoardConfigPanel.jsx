@@ -4,28 +4,35 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
-const AVAILABLE_FIELDS = [
-  'candidate_name', 'ticket_number', 'ticket_status', 'ticket_date',
-  'task_owner', 'department', 'position', 'country_company',
-  'action', 'sub_action', 'remarks', 'assessment_level', 'assessment_result',
-];
-
 function ColumnFieldsPanel({ column, onChange }) {
   const [open, setOpen] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
 
-  function toggleField(fieldKey) {
-    const exists = column.fields.find(f => f.field_key === fieldKey);
-    const next = exists
-      ? column.fields.filter(f => f.field_key !== fieldKey)
-      : [...column.fields, { field_key: fieldKey, is_required: false, display_order: column.fields.length + 1 }];
-    onChange({ ...column, fields: next });
+  function addField() {
+    const label = newLabel.trim();
+    if (!label) return;
+    if (column.fields.find(f => f.field_key === label)) {
+      toast.error('Field label already exists');
+      return;
+    }
+    onChange({
+      ...column,
+      fields: [...column.fields, { field_key: label, is_required: false, display_order: column.fields.length + 1 }],
+    });
+    setNewLabel('');
+  }
+
+  function removeField(fieldKey) {
+    onChange({ ...column, fields: column.fields.filter(f => f.field_key !== fieldKey) });
   }
 
   function toggleRequired(fieldKey) {
-    const next = column.fields.map(f =>
-      f.field_key === fieldKey ? { ...f, is_required: !f.is_required } : f
-    );
-    onChange({ ...column, fields: next });
+    onChange({
+      ...column,
+      fields: column.fields.map(f =>
+        f.field_key === fieldKey ? { ...f, is_required: !f.is_required } : f
+      ),
+    });
   }
 
   return (
@@ -36,8 +43,9 @@ function ColumnFieldsPanel({ column, onChange }) {
         onClick={() => setOpen(o => !o)}
         style={{ fontSize: '0.75rem' }}
       >
-        Fields ({column.fields.length}) {open ? '▲' : '▼'}
+        Custom Fields ({column.fields.length}) {open ? '▲' : '▼'}
       </button>
+
       {open && (
         <div style={{
           marginTop: '8px',
@@ -46,31 +54,47 @@ function ColumnFieldsPanel({ column, onChange }) {
           borderRadius: 'var(--radius)',
           padding: '10px',
         }}>
-          {AVAILABLE_FIELDS.map(key => {
-            const included = column.fields.find(f => f.field_key === key);
-            return (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', fontSize: '0.8rem' }}>
+          {column.fields.length === 0 && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-3)', marginBottom: '8px' }}>
+              No custom fields yet. Add one below.
+            </p>
+          )}
+
+          {column.fields.map(f => (
+            <div key={f.field_key} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', fontSize: '0.82rem' }}>
+              <span style={{ flex: 1, fontWeight: 500 }}>{f.field_key}</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
                 <input
                   type="checkbox"
-                  checked={!!included}
-                  onChange={() => toggleField(key)}
+                  checked={f.is_required}
+                  onChange={() => toggleRequired(f.field_key)}
                   style={{ width: 'auto' }}
                 />
-                <span style={{ flex: 1 }}>{key.replace(/_/g, ' ')}</span>
-                {included && (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-2)' }}>
-                    <input
-                      type="checkbox"
-                      checked={included.is_required}
-                      onChange={() => toggleRequired(key)}
-                      style={{ width: 'auto' }}
-                    />
-                    required
-                  </label>
-                )}
-              </div>
-            );
-          })}
+                required
+              </label>
+              <button
+                type="button"
+                className="btn btn-danger btn-xs"
+                onClick={() => removeField(f.field_key)}
+                style={{ padding: '1px 5px', fontSize: '0.7rem' }}
+              >
+                🗑
+              </button>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+            <input
+              value={newLabel}
+              onChange={e => setNewLabel(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addField(); } }}
+              placeholder="Field label (e.g. Interview Date)"
+              style={{ flex: 1, fontSize: '0.8rem', padding: '4px 8px' }}
+            />
+            <button type="button" className="btn btn-ghost btn-xs" onClick={addField}>
+              + Add
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -88,7 +112,6 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
     queryFn: () => api.get(`/admin/board-configs/${ticketTypeId}`).then(r => r.data),
   });
 
-  // Populate form from loaded config
   useEffect(() => {
     if (!configQuery.data) return;
     setMode(configQuery.data.mode || 'board');
@@ -98,7 +121,6 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      // Build transitions from allowed_target_ids
       const transitions = [];
       for (const col of columns) {
         for (const toId of (col.allowed_target_ids || [])) {
@@ -214,10 +236,9 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
         </div>
       </div>
 
-      {/* Board mode config */}
+      {/* Board mode */}
       {mode === 'board' && (
         <div>
-          {/* Columns list */}
           <div style={{ marginBottom: '20px' }}>
             <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: '8px' }}>
               Columns
@@ -254,7 +275,6 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
             </button>
           </div>
 
-          {/* Transitions grid */}
           {columns.length > 1 && (
             <div style={{ marginBottom: '20px' }}>
               <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: '8px' }}>
@@ -302,7 +322,7 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
         </div>
       )}
 
-      {/* Progress mode config */}
+      {/* Progress mode */}
       {mode === 'progress' && (
         <div style={{ marginBottom: '20px' }}>
           <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: '8px' }}>
@@ -327,7 +347,6 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
         </div>
       )}
 
-      {/* Actions */}
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between', marginTop: '8px' }}>
         <button
           type="button"

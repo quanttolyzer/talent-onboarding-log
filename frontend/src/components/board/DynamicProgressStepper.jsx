@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
-export default function DynamicProgressStepper({ ticketId, phases, currentPhaseId, history, isAdmin }) {
+export default function DynamicProgressStepper({ ticketId, phases, currentPhaseId, isAdmin }) {
   const qc = useQueryClient();
 
   const currentIdx = currentPhaseId
@@ -136,30 +136,6 @@ export default function DynamicProgressStepper({ ticketId, phases, currentPhaseI
         </div>
       )}
 
-      {/* Activity log */}
-      {history.length > 0 && (
-        <div>
-          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: '10px' }}>
-            History
-          </div>
-          {history.map((entry, i) => (
-            <div key={entry.created_at || i} style={{
-              display: 'flex', gap: '12px', alignItems: 'flex-start',
-              padding: '8px 0',
-              borderBottom: i < history.length - 1 ? '1px solid var(--border)' : 'none',
-              fontSize: '0.82rem',
-            }}>
-              <span style={{ color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                {entry.phase_label}
-              </span>
-              <span style={{ color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-                {new Date(entry.created_at).toLocaleString()}
-              </span>
-              <span style={{ color: 'var(--text-3)' }}>by {entry.advanced_by || 'system'}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
