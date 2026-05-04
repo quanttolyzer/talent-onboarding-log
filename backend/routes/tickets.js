@@ -7,10 +7,16 @@ router.use(authMiddleware);
 
 // ── Helper: write audit log ───────────────────────────────────
 async function writeAudit(client, ticketId, userId, fieldName, oldVal, newVal) {
+  // Guard: if userId doesn't exist in users (e.g. stale JWT after DB wipe), write null
+  let safeUserId = userId;
+  if (userId) {
+    const { rows } = await client.query('SELECT id FROM users WHERE id = $1', [userId]);
+    if (!rows.length) safeUserId = null;
+  }
   await client.query(
     `INSERT INTO audit_log (ticket_id, changed_by, field_name, old_value, new_value)
      VALUES ($1, $2, $3, $4, $5)`,
-    [ticketId, userId, fieldName, String(oldVal ?? ''), String(newVal ?? '')]
+    [ticketId, safeUserId, fieldName, String(oldVal ?? ''), String(newVal ?? '')]
   );
 }
 

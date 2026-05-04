@@ -234,11 +234,13 @@ CREATE TRIGGER tickets_group_status_sync
 -- DEFAULT ADMIN USER (change password after first login!)
 -- ============================================================
 
-INSERT INTO users (name, email, password_hash, role)
+-- Fixed UUID so JWT tokens remain valid across docker compose down -v restarts
+INSERT INTO users (id, name, email, password_hash, role)
 VALUES (
+  '00000000-0000-0000-0000-000000000001',
   'Admin',
   'admin@talent.internal',
-  -- This is bcrypt hash of 'password' — CHANGE THIS IMMEDIATELY after first login
+  -- bcrypt hash of 'password' — CHANGE THIS after first login
   '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
   'admin'
 );
