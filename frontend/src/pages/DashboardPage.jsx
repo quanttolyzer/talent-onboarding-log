@@ -460,16 +460,14 @@ export default function DashboardPage() {
                                 <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
                               </>
                             )}
-                            {ticket.position_id && (
-                              <Link
-                                to={`/positions/${ticket.position_id}`}
-                                className="btn btn-ghost btn-xs"
-                                title="Open Board"
-                                style={{ textDecoration: 'none' }}
-                              >
-                                📋
-                              </Link>
-                            )}
+                            <Link
+                              to={`/tickets/${ticket.id}/board`}
+                              className="btn btn-ghost btn-xs"
+                              title="Open Board"
+                              style={{ textDecoration: 'none' }}
+                            >
+                              📋
+                            </Link>
                           </div>
                         </td>
                       </tr>

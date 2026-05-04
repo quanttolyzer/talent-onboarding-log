@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
 import PositionPage from './pages/PositionPage';
+import TicketBoardPage from './pages/TicketBoardPage';
 import RoleGuard from './components/RoleGuard';
 
 const queryClient = new QueryClient({
@@ -56,6 +57,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <PositionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tickets/:ticketId/board"
+            element={
+              <ProtectedRoute>
+                <TicketBoardPage />
               </ProtectedRoute>
             }
           />
