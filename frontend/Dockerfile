@@ -13,6 +13,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# VITE_API_URL is baked into the JS bundle at build time.
+# Set to /api/v1 so nginx proxies all API calls — no hardcoded host needed.
+ARG VITE_API_URL=/api/v1
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build the application
 RUN npm run build
 
