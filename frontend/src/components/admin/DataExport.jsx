@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
@@ -11,6 +10,7 @@ export default function DataExport() {
   const exportOptions = [
     { id: 'tickets', label: 'Tickets Data', description: 'All ticket records with full details' },
     { id: 'users', label: 'Users Data', description: 'All user accounts and roles' },
+    { id: 'activity', label: 'Users Activity Data', description: 'Full audit log of all user actions and changes' },
   ];
 
   const formatOptions = [
@@ -24,6 +24,7 @@ export default function DataExport() {
       const response = await api.get(`/admin/export/${selectedData}`, {
         params: { format: selectedFormat },
         responseType: selectedFormat === 'csv' ? 'blob' : 'json',
+        timeout: 60000,
       });
 
       if (selectedFormat === 'csv') {
@@ -212,6 +213,9 @@ export default function DataExport() {
           </p>
           <p style={{ margin: '0 0 8px 0' }}>
             <strong>Users Export:</strong> Includes all user accounts with their roles, status, and creation dates.
+          </p>
+          <p style={{ margin: '0 0 8px 0' }}>
+            <strong>Users Activity Export:</strong> Includes the full audit log — who changed what, on which ticket, with old and new values, and timestamps.
           </p>
           <p style={{ margin: 0 }}>
             <strong>CSV Format:</strong> Best for importing into spreadsheet applications like Excel or Google Sheets.

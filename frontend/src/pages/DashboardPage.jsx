@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -48,6 +48,39 @@ export default function DashboardPage() {
   const [selected,        setSelected]        = useState(new Set());
   const [editTicket,      setEditTicket]      = useState(null);
   const [progressTicket,  setProgressTicket]  = useState(null);
+
+  // ── Top scrollbar mirror ─────────────────────────────────────
+  const topScrollRef  = useRef(null);
+  const tableWrapRef  = useRef(null);
+  const spacerRef     = useRef(null);
+  const isSyncing     = useRef(false);
+
+  // Keep the spacer width exactly equal to the table wrapper's real scrollWidth
+  // so both scroll bars have identical ranges.
+  useEffect(() => {
+    const wrap = tableWrapRef.current;
+    if (!wrap) return;
+    const update = () => {
+      if (spacerRef.current) spacerRef.current.style.width = wrap.scrollWidth + 'px';
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, []);
+
+  function syncFromTop() {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (tableWrapRef.current) tableWrapRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    isSyncing.current = false;
+  }
+  function syncFromTable() {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (topScrollRef.current) topScrollRef.current.scrollLeft = tableWrapRef.current.scrollLeft;
+    isSyncing.current = false;
+  }
 
   // ── Debounced search ─────────────────────────────────────────
   const searchTimer = useRef(null);
@@ -208,60 +241,53 @@ export default function DashboardPage() {
               <button className="btn btn-ghost btn-sm" onClick={clearFilters}>Clear all</button>
             </div>
 
-            {/* Filter row 1: Status, Type, Owner */}
-            <div style={{ display:'flex', gap:'10px', marginBottom:'10px', flexWrap:'wrap' }}>
-              <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'150px' }}>
+            {/* Filters — 3-column equal grid */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'10px', marginBottom:'16px' }}>
+              <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
                 <option value="">All Statuses</option>
                 {(mappingsQuery.data?.ticket_statuses || FALLBACK_STATUSES.map(s => ({ id: s, name: s }))).map(s => (
                   <option key={s.id || s} value={s.name || s}>{s.name || s}</option>
                 ))}
               </select>
-              <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+              <select value={filterType} onChange={e => { setFilterType(e.target.value); setPage(1); }}>
                 <option value="">All Types</option>
                 {(mappingsQuery.data?.ticket_types || FALLBACK_TYPES.map(t => ({ id: t, name: t }))).map(t => (
                   <option key={t.id || t} value={t.name || t}>{t.name || t}</option>
                 ))}
               </select>
-              <select value={filterOwner} onChange={e => { setFilterOwner(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+              <select value={filterOwner} onChange={e => { setFilterOwner(e.target.value); setPage(1); }}>
                 <option value="">All Owners</option>
                 {(filterOptionsQuery.data?.owners || []).map(o => (
                   <option key={o.id} value={o.id}>{o.name}</option>
                 ))}
               </select>
-            </div>
-
-            {/* Filter row 2: Department, Position, Country & bulk actions */}
-            <div style={{ display:'flex', gap:'10px', marginBottom:'16px', flexWrap:'wrap' }}>
-              <select value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+              <select value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1); }}>
                 <option value="">All Departments</option>
                 {(mappingsQuery.data?.departments || []).map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
-              <select value={filterPosition} onChange={e => { setFilterPosition(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'160px' }}>
+              <select value={filterPosition} onChange={e => { setFilterPosition(e.target.value); setPage(1); }}>
                 <option value="">All Positions</option>
                 {(mappingsQuery.data?.positions || []).map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-              <select value={filterCountry} onChange={e => { setFilterCountry(e.target.value); setPage(1); }} style={{ width:'auto', minWidth:'180px' }}>
+              <select value={filterCountry} onChange={e => { setFilterCountry(e.target.value); setPage(1); }}>
                 <option value="">All Countries & Companies</option>
                 {(mappingsQuery.data?.country_companies || []).map(c => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-
-              <div style={{ marginLeft:'auto', display:'flex', gap:'8px' }}>
-                {selected.size > 0 && <>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setEditTicket(selectedTickets[0])}>
-                    Edit
-                  </button>
-                  <button className="btn btn-danger btn-sm" onClick={() => confirmDelete([...selected])}>
-                    Delete ({selected.size})
-                  </button>
-                </>}
-              </div>
             </div>
+
+            {/* Bulk actions — only visible when rows are selected */}
+            {selected.size > 0 && (
+              <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end', marginBottom:'12px' }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditTicket(selectedTickets[0])}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={() => confirmDelete([...selected])}>Delete ({selected.size})</button>
+              </div>
+            )}
 
             {/* Results count */}
             <div style={{ fontSize:'0.8rem', color:'var(--text-2)', marginBottom:'12px' }}>
@@ -274,7 +300,18 @@ export default function DashboardPage() {
             </div>
 
             {/* ── Table ── */}
-            <div style={{
+            {/* Top scrollbar mirror — synced with the table wrapper below */}
+            <div
+              ref={topScrollRef}
+              onScroll={syncFromTop}
+              style={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', marginBottom: '2px' }}
+            >
+              <div ref={spacerRef} style={{ height: '1px' }} />
+            </div>
+            <div
+              ref={tableWrapRef}
+              onScroll={syncFromTable}
+              style={{
               overflowX: 'auto',
               borderRadius: 'var(--radius)',
               border: '1px solid var(--border)',
@@ -416,33 +453,22 @@ export default function DashboardPage() {
                           transition: 'border-color 0.15s',
                         }}>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            {isAdmin ? (
+                            <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">📝</button>
+                            {isAdmin && (
                               <>
-                                <button className="btn btn-ghost btn-xs" onClick={() => setProgressTicket(ticket)} title="Update Progress">📝</button>
                                 <button className="btn btn-ghost btn-xs" onClick={() => setEditTicket(ticket)} title="Edit">✏️</button>
                                 <button className="btn btn-danger btn-xs" onClick={() => confirmDelete([ticket.id])} title="Delete">🗑</button>
-                                {ticket.position_id && (
-                                  <Link
-                                    to={`/positions/${ticket.position_id}`}
-                                    className="btn btn-ghost btn-xs"
-                                    title="Open Board"
-                                    style={{ textDecoration: 'none' }}
-                                  >
-                                    📋
-                                  </Link>
-                                )}
                               </>
-                            ) : (
-                              ticket.position_id && (
-                                <Link
-                                  to={`/positions/${ticket.position_id}`}
-                                  className="btn btn-ghost btn-xs"
-                                  title="Open Board"
-                                  style={{ textDecoration: 'none' }}
-                                >
-                                  📋
-                                </Link>
-                              )
+                            )}
+                            {ticket.position_id && (
+                              <Link
+                                to={`/positions/${ticket.position_id}`}
+                                className="btn btn-ghost btn-xs"
+                                title="Open Board"
+                                style={{ textDecoration: 'none' }}
+                              >
+                                📋
+                              </Link>
                             )}
                           </div>
                         </td>

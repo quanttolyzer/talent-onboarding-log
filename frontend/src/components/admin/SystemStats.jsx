@@ -1,4 +1,19 @@
-export default function SystemStats({ stats, isLoading }) {
+function formatDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+}
+
+function actionLabel(field, oldVal, newVal) {
+  if (!oldVal && newVal)  return `set ${field} → "${newVal}"`;
+  if (oldVal && !newVal)  return `cleared ${field}`;
+  return `changed ${field}: "${oldVal}" → "${newVal}"`;
+}
+
+export default function SystemStats({ stats, isLoading, activity = [], activityLoading = false }) {
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px' }}>
@@ -118,7 +133,7 @@ export default function SystemStats({ stats, isLoading }) {
         </div>
       </div>
 
-      {/* Activity Chart Placeholder */}
+      {/* Recent Activity Feed */}
       <div style={{
         background: 'var(--bg-surface)',
         borderRadius: 'var(--radius)',
@@ -126,19 +141,57 @@ export default function SystemStats({ stats, isLoading }) {
         padding: '20px',
         marginTop: '24px',
       }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: 600 }}>Recent Activity</h3>
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px', 
-          color: 'var(--text-2)',
-          border: '1px dashed var(--border)',
-          borderRadius: '6px',
-        }}>
-          📊 Activity charts and graphs can be implemented here
-          <div style={{ fontSize: '0.8rem', marginTop: '8px' }}>
-            Consider integrating a charting library like Chart.js or Recharts for visual analytics
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          🕐 Recent Activity
+          <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-2)', marginLeft: '4px' }}>
+            (latest {activity.length} entries)
+          </span>
+        </h3>
+
+        {activityLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+            <div className="spinner" style={{ width: 24, height: 24 }} />
           </div>
-        </div>
+        ) : activity.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-2)', fontSize: '0.9rem' }}>
+            No activity recorded yet.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+            {activity.map((entry, i) => (
+              <div key={entry.id} style={{
+                display: 'grid',
+                gridTemplateColumns: '180px 140px 1fr',
+                gap: '12px',
+                alignItems: 'start',
+                padding: '10px 12px',
+                borderRadius: '6px',
+                background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                fontSize: '0.85rem',
+              }}>
+                {/* Date & time */}
+                <span style={{ color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                  {formatDateTime(entry.changed_at)}
+                </span>
+                {/* User + ticket */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-1)' }}>
+                    {entry.changed_by_name || 'System'}
+                  </span>
+                  {entry.ticket_number && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>
+                      {entry.ticket_number}
+                    </span>
+                  )}
+                </div>
+                {/* What changed */}
+                <span style={{ color: 'var(--text-1)', wordBreak: 'break-word' }}>
+                  {actionLabel(entry.field_name, entry.old_value, entry.new_value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* System Health */}

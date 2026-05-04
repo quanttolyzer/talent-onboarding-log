@@ -68,7 +68,7 @@ input:focus, select:focus, textarea:focus {
   background: rgba(99,102,241,0.06);
   box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
 }
-select option { background: var(--bg-surface); }
+select option { background: var(--bg-surface); color: var(--text-1); }
 input::placeholder, textarea::placeholder { color: var(--text-3); }
 
 /* ── Button base ── */
