@@ -458,6 +458,38 @@ router.get('/export/tickets', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/v1/admin/export/activity
+router.get('/export/activity', async (req, res, next) => {
+  try {
+    const { format = 'csv' } = req.query;
+
+    const { rows } = await pool.query(`
+      SELECT
+        a.id,
+        u.name        AS changed_by_name,
+        u.email       AS changed_by_email,
+        t.ticket_number,
+        a.field_name,
+        a.old_value,
+        a.new_value,
+        a.changed_at
+      FROM audit_log a
+      LEFT JOIN users   u ON u.id = a.changed_by
+      LEFT JOIN tickets t ON t.id = a.ticket_id
+      ORDER BY a.changed_at DESC
+    `);
+
+    if (format === 'csv') {
+      const csv = convertToCSV(rows);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="activity-export.csv"');
+      res.send(csv);
+    } else {
+      res.json(rows);
+    }
+  } catch (err) { next(err); }
+});
+
 // GET /api/v1/admin/export/users
 router.get('/export/users', async (req, res, next) => {
   try {
