@@ -317,23 +317,23 @@ export default function DashboardPage() {
               border: '1px solid var(--border)',
               scrollbarWidth: 'thin',
             }}>
-              <table className="data-table" style={{ width: isAdmin ? '1760px' : '1718px' }}>
+              <table className="data-table" style={{ minWidth: '1100px' }}>
                 <colgroup>
-                  {isAdmin && <col style={{ width: '42px' }} />}
-                  <col style={{ width: '98px' }} />
-                  <col style={{ width: '124px' }} />
-                  <col style={{ width: '128px' }} />
-                  <col style={{ width: '124px' }} />
-                  <col style={{ width: '124px' }} />
-                  <col style={{ width: '98px' }} />
-                  <col style={{ width: '176px' }} />
-                  <col style={{ width: '108px' }} />
-                  <col style={{ width: '144px' }} />
-                  <col style={{ width: '144px' }} />
-                  <col style={{ width: '144px' }} />
-                  <col style={{ width: '152px' }} />
-                  <col style={{ width: '82px' }} />
-                  <col style={{ width: '112px' }} />
+                  {isAdmin && <col style={{ width: '44px' }} />}
+                  <col style={{ width: '5.5%' }} />
+                  <col style={{ width: '7%' }} />
+                  <col style={{ width: '7.5%' }} />
+                  <col style={{ width: '7%' }} />
+                  <col style={{ width: '7%' }} />
+                  <col style={{ width: '5.5%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '6%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '8.5%' }} />
+                  <col style={{ width: '4%' }} />
+                  <col style={{ width: '118px' }} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -358,8 +358,8 @@ export default function DashboardPage() {
                     <th>Department</th>
                     <th>Ultimate HM</th>
                     <th>Direct HM</th>
-                    <th>Country &amp; Co.</th>
-                    <th style={{ textAlign:'center' }}>Cands.</th>
+                    <th>Country &amp; Company</th>
+                    <th style={{ textAlign:'center' }}>No.</th>
                     <th style={{ textAlign:'right', position:'sticky', right:0, zIndex:6, background:'var(--bg-elevated)' }}>Actions</th>
                   </tr>
                 </thead>
