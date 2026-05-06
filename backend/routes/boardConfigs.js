@@ -157,22 +157,45 @@ router.put('/:ticketTypeId', async (req, res, next) => {
       activeConfigId = created.id;
     }
 
-    await client.query('DELETE FROM board_columns WHERE board_config_id = $1', [activeConfigId]);
-    await client.query('DELETE FROM board_phases   WHERE board_config_id = $1', [activeConfigId]);
+    // Phases still use delete+reinsert (no foreign key entries reference them by ID)
+    await client.query('DELETE FROM board_phases WHERE board_config_id = $1', [activeConfigId]);
 
     if (mode === 'board') {
+      const incomingLabels = columns.map(c => c.label);
+
+      // Delete columns that are no longer in the incoming list
+      // (CASCADE deletes their fields, transitions, and entries)
+      if (incomingLabels.length > 0) {
+        await client.query(
+          `DELETE FROM board_columns
+           WHERE board_config_id = $1 AND label <> ALL($2::text[])`,
+          [activeConfigId, incomingLabels]
+        );
+      } else {
+        await client.query('DELETE FROM board_columns WHERE board_config_id = $1', [activeConfigId]);
+      }
+
       const labelToId = {};
       for (const col of columns) {
-        const { rows: [inserted] } = await client.query(
-          'INSERT INTO board_columns (board_config_id, label, position) VALUES ($1, $2, $3) RETURNING id',
-          [activeConfigId, col.label, col.position]
+        // Upsert: preserve existing id if label already exists
+        const { rows: [upserted] } = await client.query(
+          `INSERT INTO board_columns (board_config_id, label, position, card_display_fields)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (board_config_id, label)
+           DO UPDATE SET position = EXCLUDED.position,
+                         card_display_fields = EXCLUDED.card_display_fields
+           RETURNING id`,
+          [activeConfigId, col.label, col.position, JSON.stringify(col.card_display_fields || [])]
         );
-        labelToId[col.label] = inserted.id;
+        labelToId[col.label] = upserted.id;
+
+        // Replace fields for this column (fields don't have external references)
+        await client.query('DELETE FROM board_column_fields WHERE board_column_id = $1', [upserted.id]);
         for (const field of (col.fields || [])) {
           await client.query(
             `INSERT INTO board_column_fields (board_column_id, field_key, is_required, display_order)
              VALUES ($1, $2, $3, $4)`,
-            [inserted.id, field.field_key, field.is_required ?? false, field.display_order || 0]
+            [upserted.id, field.field_key, field.is_required ?? false, field.display_order || 0]
           );
         }
       }
