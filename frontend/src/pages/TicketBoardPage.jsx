@@ -261,7 +261,7 @@ export default function TicketBoardPage() {
 
         {/* Stacked boards */}
         {boards.map((board, i) => (
-          <div key={board.sort_order} style={{ marginBottom: '32px' }}>
+          <div key={i} style={{ marginBottom: '32px' }}>
             <div style={{
               fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)',
               marginBottom: '12px',
