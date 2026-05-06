@@ -19,7 +19,6 @@ export default function UpdateProgressModal({ ticket, mappings, onClose, onSaved
   const [form, setForm] = useState({
     entry_date:      today,
     ticket_status:   ticket.ticket_status || '',
-    ticket_type:     ticket.ticket_type   || '',
     candidate_count: ticket.candidate_count || 1,
     remarks:         ticket.remarks       || '',
   });
@@ -46,11 +45,10 @@ export default function UpdateProgressModal({ ticket, mappings, onClose, onSaved
 
   function handleSubmit(e) {
     e.preventDefault();
-    progressMutation.mutate(form);
+    progressMutation.mutate({ ...form, ticket_type: ticket.ticket_type });
   }
 
   const statuses   = mappings?.ticket_statuses || [];
-  const types      = mappings?.ticket_types    || [];
 
   const overlayStyle = {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
@@ -113,10 +111,16 @@ export default function UpdateProgressModal({ ticket, mappings, onClose, onSaved
               </div>
               <div className="form-group">
                 <label>Ticket Type</label>
-                <select value={form.ticket_type} onChange={e => set('ticket_type', e.target.value)}>
-                  <option value="">— Select —</option>
-                  {types.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                </select>
+                <div style={{
+                  padding: '8px 10px',
+                  background: 'var(--bg)',
+                  borderRadius: 'var(--radius)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-2)',
+                  fontSize: '0.9rem',
+                }}>
+                  {ticket.ticket_type}
+                </div>
               </div>
               <div className="form-group">
                 <label>Candidates</label>
