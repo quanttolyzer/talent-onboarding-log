@@ -110,7 +110,6 @@ router.post('/entries', async (req, res, next) => {
     const { board_column_id, field_values = {} } = req.body;
     if (!board_column_id) return res.status(400).json({ error: 'board_column_id is required' });
 
-    // Verify column belongs to a config that matches this ticket's type
     const { rows: [colCheck] } = await pool.query(
       `SELECT bc_col.id FROM board_columns bc_col
        JOIN board_configs bc   ON bc.id    = bc_col.board_config_id
@@ -121,7 +120,6 @@ router.post('/entries', async (req, res, next) => {
     );
     if (!colCheck) return res.status(400).json({ error: 'Invalid column for this ticket' });
 
-    // Validate required fields
     const { rows: required } = await pool.query(
       'SELECT field_key FROM board_column_fields WHERE board_column_id = $1 AND is_required = true',
       [board_column_id]
@@ -138,6 +136,18 @@ router.post('/entries', async (req, res, next) => {
        RETURNING id, board_column_id, field_values, created_at`,
       [ticketId, board_column_id, JSON.stringify(field_values)]
     );
+
+    // Log the entry add
+    const [{ rows: [col] }, { rows: [ticket] }] = await Promise.all([
+      pool.query('SELECT label FROM board_columns WHERE id = $1', [board_column_id]),
+      pool.query('SELECT ticket_status FROM tickets WHERE id = $1', [ticketId]),
+    ]);
+    await pool.query(
+      `INSERT INTO audit_log (ticket_id, changed_by, field_name, old_value, new_value)
+       VALUES ($1, $2, 'board_entry_added', $3, $4)`,
+      [ticketId, req.user.id, col?.label || '—', ticket?.ticket_status || '—']
+    );
+
     res.status(201).json(entry);
   } catch (err) { next(err); }
 });
