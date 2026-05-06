@@ -197,6 +197,21 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
     }
 
+    // Enforce task_owner for non-admins
+    let resolvedTaskOwnerId = task_owner_id || null;
+    if (req.user.role !== 'admin') {
+      resolvedTaskOwnerId = req.user.id;
+    }
+
+    // Apply default status if none provided
+    let resolvedStatus = ticket_status;
+    if (!resolvedStatus) {
+      const { rows: [def] } = await client.query(
+        'SELECT name FROM ticket_statuses WHERE is_default = true LIMIT 1'
+      );
+      resolvedStatus = def?.name || '';
+    }
+
     const { rows } = await client.query(`
       INSERT INTO tickets (
         task_owner_id,
@@ -207,8 +222,8 @@ router.post('/', async (req, res, next) => {
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
       ) RETURNING *
     `, [
-      task_owner_id || null,
-      entry_date, ticket_number, ticket_type, ticket_status, ticket_date,
+      resolvedTaskOwnerId,
+      entry_date, ticket_number, ticket_type, resolvedStatus, ticket_date,
       position_id || null, management_type, department_id || null,
       ultimate_hm_id || null, direct_hm_id || null,
       country_company_id || null, candidate_count, remarks || null,
