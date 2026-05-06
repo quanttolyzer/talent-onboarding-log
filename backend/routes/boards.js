@@ -2,6 +2,7 @@
 const router = require('express').Router({ mergeParams: true });
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
+const { canAccessTicket } = require('../middleware/access');
 
 router.use(authMiddleware);
 
@@ -9,6 +10,10 @@ router.use(authMiddleware);
 router.get('/', async (req, res, next) => {
   try {
     const { ticketId } = req.params;
+
+    const allowed = await canAccessTicket(pool, req.user.id, req.user.role, ticketId);
+    if (!allowed) return res.status(403).json({ error: 'Access denied' });
+
     const { rows: [ticket] } = await pool.query(
       'SELECT id, ticket_type FROM tickets WHERE id = $1',
       [ticketId]
@@ -90,6 +95,10 @@ router.get('/', async (req, res, next) => {
 router.post('/entries', async (req, res, next) => {
   try {
     const { ticketId } = req.params;
+
+    const allowed = await canAccessTicket(pool, req.user.id, req.user.role, ticketId);
+    if (!allowed) return res.status(403).json({ error: 'Access denied' });
+
     const { board_column_id, field_values = {} } = req.body;
     if (!board_column_id) return res.status(400).json({ error: 'board_column_id is required' });
 
@@ -129,6 +138,10 @@ router.post('/entries', async (req, res, next) => {
 router.patch('/entries/:entryId/move', async (req, res, next) => {
   try {
     const { ticketId, entryId } = req.params;
+
+    const allowed = await canAccessTicket(pool, req.user.id, req.user.role, ticketId);
+    if (!allowed) return res.status(403).json({ error: 'Access denied' });
+
     const { target_column_id, additional_field_values = {} } = req.body;
     if (!target_column_id) return res.status(400).json({ error: 'target_column_id is required' });
 
