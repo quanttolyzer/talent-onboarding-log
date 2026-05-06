@@ -226,7 +226,7 @@ export default function TicketBoardPage() {
     );
   }
 
-  const board  = boardQuery.data;
+  const { boards } = boardQuery.data;
   const ticket = ticketQuery.data;
 
   return (
@@ -243,7 +243,9 @@ export default function TicketBoardPage() {
       }}>
         <Link to="/" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>← Back</Link>
         <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-          {board.mode === 'board' ? '📋 Board' : '📊 Progress'}
+          {boards.length === 1
+            ? (boards[0].mode === 'board' ? '📋 Board' : '📊 Progress')
+            : '📋 Boards'}
         </span>
         {ticket && (
           <span style={{ fontSize: '0.82rem', color: 'var(--text-2)' }}>
@@ -257,18 +259,29 @@ export default function TicketBoardPage() {
         {/* Ticket details */}
         {ticket && <TicketDetails ticket={ticket} />}
 
-        {/* Board or Progress */}
-        {board.mode === 'board' && (
-          <DynamicKanbanBoard ticketId={ticketId} columns={board.columns} isAdmin={isAdmin} />
-        )}
-        {board.mode === 'progress' && (
-          <DynamicProgressStepper
-            ticketId={ticketId}
-            phases={board.phases}
-            currentPhaseId={board.current_phase_id}
-            isAdmin={isAdmin}
-          />
-        )}
+        {/* Stacked boards */}
+        {boards.map((board, i) => (
+          <div key={board.sort_order} style={{ marginBottom: '32px' }}>
+            <div style={{
+              fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)',
+              marginBottom: '12px',
+            }}>
+              {board.mode === 'board' ? '📋 Board' : '📊 Progress'}
+              {boards.length > 1 ? ` (${i + 1})` : ''}
+            </div>
+            {board.mode === 'board' && (
+              <DynamicKanbanBoard ticketId={ticketId} columns={board.columns} isAdmin={isAdmin} />
+            )}
+            {board.mode === 'progress' && (
+              <DynamicProgressStepper
+                ticketId={ticketId}
+                phases={board.phases}
+                currentPhaseId={board.current_phase_id}
+                isAdmin={isAdmin}
+              />
+            )}
+          </div>
+        ))}
 
         {/* Activity log */}
         <ActivityLog ticketId={ticketId} />
