@@ -20,74 +20,82 @@ router.get('/', async (req, res, next) => {
     );
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
-    const { rows: [config] } = await pool.query(
-      `SELECT bc.id, bc.mode FROM board_configs bc
+    const { rows: configs } = await pool.query(
+      `SELECT bc.id, bc.mode, bc.sort_order
+       FROM board_configs bc
        JOIN ticket_types tt ON tt.id = bc.ticket_type_id
-       WHERE tt.name = $1`,
+       WHERE tt.name = $1
+       ORDER BY bc.sort_order`,
       [ticket.ticket_type]
     );
-    if (!config) return res.status(404).json({ error: 'No board configured for this ticket type' });
-
-    if (config.mode === 'board') {
-      const { rows: columns } = await pool.query(
-        'SELECT id, label, position FROM board_columns WHERE board_config_id = $1 ORDER BY position',
-        [config.id]
-      );
-      const columnIds = columns.map(c => c.id);
-
-      let fields = [], transitions = [], entries = [];
-      if (columnIds.length > 0) {
-        const { rows: f } = await pool.query(
-          `SELECT board_column_id, field_key, is_required, display_order
-           FROM board_column_fields WHERE board_column_id = ANY($1) ORDER BY display_order`,
-          [columnIds]
-        );
-        fields = f;
-
-        const { rows: t } = await pool.query(
-          'SELECT from_column_id, to_column_id FROM board_column_transitions WHERE from_column_id = ANY($1)',
-          [columnIds]
-        );
-        transitions = t;
-
-        const { rows: e } = await pool.query(
-          `SELECT id, board_column_id, field_values, created_at
-           FROM board_entries WHERE ticket_id = $1 AND board_column_id = ANY($2)
-           ORDER BY created_at`,
-          [ticketId, columnIds]
-        );
-        entries = e;
-      }
-
-      const columnsWithData = columns.map(col => ({
-        ...col,
-        fields: fields.filter(f => f.board_column_id === col.id),
-        allowed_target_ids: transitions.filter(t => t.from_column_id === col.id).map(t => t.to_column_id),
-        entries: entries.filter(e => e.board_column_id === col.id),
-      }));
-
-      return res.json({ mode: 'board', columns: columnsWithData });
+    if (configs.length === 0) {
+      return res.status(404).json({ error: 'No board configured for this ticket type' });
     }
 
-    // Progress mode
-    const { rows: phases } = await pool.query(
-      'SELECT id, label, position FROM board_phases WHERE board_config_id = $1 ORDER BY position',
-      [config.id]
-    );
-    const { rows: history } = await pool.query(
-      `SELECT tph.id, tph.board_phase_id, tph.created_at,
-              bp.label AS phase_label,
-              u.name   AS advanced_by
-       FROM ticket_phase_history tph
-       JOIN board_phases bp ON bp.id = tph.board_phase_id
-       LEFT JOIN users u   ON u.id  = tph.advanced_by
-       WHERE tph.ticket_id = $1
-       ORDER BY tph.created_at`,
-      [ticketId]
-    );
-    const current_phase_id = history.length > 0 ? history[history.length - 1].board_phase_id : null;
+    const boards = await Promise.all(configs.map(async (config) => {
+      if (config.mode === 'board') {
+        const { rows: columns } = await pool.query(
+          'SELECT id, label, position FROM board_columns WHERE board_config_id = $1 ORDER BY position',
+          [config.id]
+        );
+        const columnIds = columns.map(c => c.id);
 
-    res.json({ mode: 'progress', phases, current_phase_id, history });
+        let fields = [], transitions = [], entries = [];
+        if (columnIds.length > 0) {
+          const { rows: f } = await pool.query(
+            `SELECT board_column_id, field_key, is_required, display_order
+             FROM board_column_fields WHERE board_column_id = ANY($1) ORDER BY display_order`,
+            [columnIds]
+          );
+          fields = f;
+
+          const { rows: t } = await pool.query(
+            'SELECT from_column_id, to_column_id FROM board_column_transitions WHERE from_column_id = ANY($1)',
+            [columnIds]
+          );
+          transitions = t;
+
+          const { rows: e } = await pool.query(
+            `SELECT id, board_column_id, field_values, created_at
+             FROM board_entries WHERE ticket_id = $1 AND board_column_id = ANY($2)
+             ORDER BY created_at`,
+            [ticketId, columnIds]
+          );
+          entries = e;
+        }
+
+        const columnsWithData = columns.map(col => ({
+          ...col,
+          fields: fields.filter(f => f.board_column_id === col.id),
+          allowed_target_ids: transitions.filter(t => t.from_column_id === col.id).map(t => t.to_column_id),
+          entries: entries.filter(e => e.board_column_id === col.id),
+        }));
+
+        return { sort_order: config.sort_order, mode: 'board', columns: columnsWithData };
+      }
+
+      // Progress mode
+      const { rows: phases } = await pool.query(
+        'SELECT id, label, position FROM board_phases WHERE board_config_id = $1 ORDER BY position',
+        [config.id]
+      );
+      const { rows: history } = await pool.query(
+        `SELECT tph.id, tph.board_phase_id, tph.created_at,
+                bp.label AS phase_label,
+                u.name   AS advanced_by
+         FROM ticket_phase_history tph
+         JOIN board_phases bp ON bp.id = tph.board_phase_id
+         LEFT JOIN users u   ON u.id  = tph.advanced_by
+         WHERE tph.ticket_id = $1
+         ORDER BY tph.created_at`,
+        [ticketId]
+      );
+      const current_phase_id = history.length > 0 ? history[history.length - 1].board_phase_id : null;
+
+      return { sort_order: config.sort_order, mode: 'progress', phases, current_phase_id, history };
+    }));
+
+    res.json({ boards });
   } catch (err) { next(err); }
 });
 
