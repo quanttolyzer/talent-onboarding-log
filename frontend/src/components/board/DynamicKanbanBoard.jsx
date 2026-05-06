@@ -56,11 +56,23 @@ const popupStyle = {
 };
 
 // ── DraggableCard ─────────────────────────────────────────────
+const FIELD_LABELS = {
+  ticket_number:   'Ticket #',
+  ticket_type:     'Type',
+  ticket_status:   'Status',
+  position_name:   'Position',
+  department_name: 'Department',
+  management_type: 'Management',
+  task_owner_name: 'Owner',
+  candidate_count: 'Candidates',
+  remarks:         'Remarks',
+};
+
 function DraggableCard({ entry, column, ticketId, isAdmin }) {
   const qc = useQueryClient();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: entry.id,
-    data: { entryId: entry.id, fromColumnId: column.id },
+    data: { entryId: entry.id, fromColumnId: column.id, existingFieldValues: entry.field_values },
   });
 
   const deleteMutation = useMutation({
@@ -72,9 +84,15 @@ function DraggableCard({ entry, column, ticketId, isAdmin }) {
     onError: err => toast.error(err.response?.data?.error || 'Delete failed'),
   });
 
-  const label = entry.field_values?.candidate_name
-    || Object.values(entry.field_values || {})[0]
-    || '(entry)';
+  const configuredFields = column.card_display_fields || [];
+  const ticketFields = entry.ticket_fields || {};
+
+  const displayFields = configuredFields.length > 0
+    ? configuredFields.map(key => ({ key, label: FIELD_LABELS[key] || key, value: ticketFields[key] })).filter(f => f.value != null && f.value !== '')
+    : [{ key: 'ticket_number', label: 'Ticket #', value: ticketFields.ticket_number || '—' }];
+
+  const titleField = displayFields[0];
+  const detailFields = displayFields.slice(1);
 
   return (
     <div
@@ -90,11 +108,13 @@ function DraggableCard({ entry, column, ticketId, isAdmin }) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ fontWeight: 600, fontSize: '0.84rem' }}>👤 {label}</div>
+        <div style={{ fontWeight: 600, fontSize: '0.84rem', flex: 1 }}>
+          {titleField ? `${titleField.value}` : '—'}
+        </div>
         {isAdmin && (
           <button
             className="btn btn-danger btn-xs"
-            style={{ padding: '1px 4px', fontSize: '0.68rem' }}
+            style={{ padding: '1px 4px', fontSize: '0.68rem', marginLeft: '4px' }}
             onClick={e => { e.stopPropagation(); deleteMutation.mutate(); }}
             onMouseDown={e => e.stopPropagation()}
           >
@@ -102,8 +122,13 @@ function DraggableCard({ entry, column, ticketId, isAdmin }) {
           </button>
         )}
       </div>
+      {detailFields.map(f => (
+        <div key={f.key} style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: '3px' }}>
+          <span style={{ fontWeight: 500 }}>{f.label}:</span> {f.value}
+        </div>
+      ))}
       {Object.entries(entry.field_values || {}).map(([k, v]) => (
-        <div key={k} style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: '3px' }}>
+        <div key={k} style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: '3px', borderTop: '1px solid var(--border)', paddingTop: '3px' }}>
           <span style={{ fontWeight: 500 }}>{k}:</span> {v || '—'}
         </div>
       ))}
