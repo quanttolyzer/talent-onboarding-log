@@ -200,6 +200,15 @@ router.put('/:ticketTypeId', async (req, res, next) => {
         }
       }
 
+      // Clear existing transitions for all columns in this config before reinserting
+      if (Object.keys(labelToId).length > 0) {
+        const columnIds = Object.values(labelToId);
+        await client.query(
+          'DELETE FROM board_column_transitions WHERE from_column_id = ANY($1)',
+          [columnIds]
+        );
+      }
+
       for (const t of transitions) {
         const fromId = labelToId[t.from_label];
         const toId   = labelToId[t.to_label];
