@@ -6,6 +6,7 @@ import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import DynamicKanbanBoard from '../components/board/DynamicKanbanBoard';
 import DynamicProgressStepper from '../components/board/DynamicProgressStepper';
+import StickyNotesPanel from '../components/StickyNotesPanel';
 
 // ── Helpers ───────────────────────────────────────────────────
 function fmt(val) {
@@ -27,12 +28,19 @@ function timeAgo(dateStr) {
 }
 
 function activityLabel(entry) {
+  const old_ = entry.old_value || '—';
+  const new_ = entry.new_value || '—';
   switch (entry.field_name) {
-    case 'created':      return 'Ticket created';
-    case 'board_column': return `Moved: ${entry.old_value} → ${entry.new_value}`;
-    case 'phase':        return `Phase: ${entry.old_value} → ${entry.new_value}`;
+    case 'created':
+      return 'Ticket created';
+    case 'board_column':
+      return `Moved: ${old_} → ${new_}`;
+    case 'board_entry_added':
+      return `Added entry to "${old_}" · Status: ${new_}`;
+    case 'phase':
+      return `Phase: ${old_} → ${new_}`;
     default:
-      return `${entry.field_name.replace(/_/g, ' ')}: ${entry.old_value || '—'} → ${entry.new_value || '—'}`;
+      return `${entry.field_name.replace(/_/g, ' ')}: ${old_} → ${new_}`;
   }
 }
 
@@ -164,15 +172,16 @@ function ActivityLog({ ticketId }) {
               width: '28px', height: '28px', borderRadius: '50%',
               background: entry.field_name === 'created'
                 ? 'rgba(34,197,94,0.15)'
-                : entry.field_name === 'board_column' || entry.field_name === 'phase'
+                : entry.field_name === 'board_column' || entry.field_name === 'board_entry_added' || entry.field_name === 'phase'
                 ? 'rgba(59,130,246,0.15)'
                 : 'rgba(156,163,175,0.15)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '0.72rem', flexShrink: 0,
             }}>
-              {entry.field_name === 'created'      ? '✦'
-               : entry.field_name === 'board_column' ? '→'
-               : entry.field_name === 'phase'        ? '◉'
+              {entry.field_name === 'created'           ? '✦'
+               : entry.field_name === 'board_column'    ? '→'
+               : entry.field_name === 'board_entry_added' ? '＋'
+               : entry.field_name === 'phase'           ? '◉'
                : '✎'}
             </span>
             <div style={{ flex: 1 }}>
@@ -282,6 +291,9 @@ export default function TicketBoardPage() {
             )}
           </div>
         ))}
+
+        {/* Sticky Notes */}
+        {ticket && <StickyNotesPanel ticketId={ticketId} />}
 
         {/* Activity log */}
         <ActivityLog ticketId={ticketId} />
