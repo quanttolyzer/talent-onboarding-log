@@ -51,6 +51,7 @@ app.use('/api/v1/admin',    require('./routes/admin'));
 app.use('/api/v1/positions', require('./routes/positions'));
 app.use('/api/v1/admin/board-configs',      require('./routes/boardConfigs'));
 app.use('/api/v1/tickets/:ticketId/board',  require('./routes/boards'));
+app.use('/api/v1/tickets/:ticketId/notes',  require('./routes/notes'));
 
 // ── 404 handler ───────────────────────────────────────────────
 app.use((_req, res) => {
