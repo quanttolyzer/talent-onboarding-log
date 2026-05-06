@@ -358,7 +358,7 @@ export default function DynamicKanbanBoard({ ticketId, columns, isAdmin }) {
         <DragOverlay>
           {activeCard && (
             <div style={{ ...cardStyle, padding: '8px 12px', cursor: 'grabbing', opacity: 0.9, boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
-              👤 {activeCard.label || 'entry'}
+              {activeCard.existingFieldValues && Object.values(activeCard.existingFieldValues).find(v => v) || 'Moving...'}
             </div>
           )}
         </DragOverlay>
