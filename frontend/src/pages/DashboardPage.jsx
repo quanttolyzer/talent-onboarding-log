@@ -333,7 +333,7 @@ export default function DashboardPage() {
                   <col style={{ width: '8%' }} />
                   <col style={{ width: '8.5%' }} />
                   <col style={{ width: '4%' }} />
-                  <col style={{ width: '118px' }} />
+                  <col style={{ width: '150px' }} />
                 </colgroup>
                 <thead>
                   <tr>
