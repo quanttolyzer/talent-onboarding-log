@@ -226,7 +226,7 @@ export default function TicketBoardPage() {
     );
   }
 
-  const { boards } = boardQuery.data;
+  const { boards = [] } = boardQuery.data ?? {};
   const ticket = ticketQuery.data;
 
   return (

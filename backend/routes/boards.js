@@ -210,11 +210,17 @@ router.delete('/entries/:entryId', async (req, res, next) => {
 router.post('/advance', async (req, res, next) => {
   try {
     const { ticketId } = req.params;
+
+    const allowed = await canAccessTicket(pool, req.user.id, req.user.role, ticketId);
+    if (!allowed) return res.status(403).json({ error: 'Access denied' });
+
     const { rows: [config] } = await pool.query(
       `SELECT bc.id FROM board_configs bc
        JOIN ticket_types tt ON tt.id = bc.ticket_type_id
        JOIN tickets t       ON t.ticket_type = tt.name
-       WHERE t.id = $1 AND bc.mode = 'progress'`,
+       WHERE t.id = $1 AND bc.mode = 'progress'
+       ORDER BY bc.sort_order
+       LIMIT 1`,
       [ticketId]
     );
     if (!config) return res.status(404).json({ error: 'No progress board for this ticket' });
