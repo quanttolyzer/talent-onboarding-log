@@ -51,6 +51,17 @@ export default function DropdownManagement() {
     onError: (e) => toast.error(e.response?.data?.error || 'Delete failed'),
   });
 
+  const setDefaultMutation = useMutation({
+    mutationFn: ({ id, isDefault }) => {
+      const endpoint = isDefault
+        ? `/admin/ticket-statuses/${id}/set-default`
+        : `/admin/ticket-statuses/${id}/clear-default`;
+      return api.put(endpoint).then(r => r.data);
+    },
+    onSuccess: () => { qc.invalidateQueries(['admin-dropdowns']); toast.success('Default updated'); },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed'),
+  });
+
   const key       = dataKey(activeSection);
   const allItems  = raw[key] || [];
   const tableItems = allItems;
@@ -104,6 +115,7 @@ export default function DropdownManagement() {
             <tr>
               <th>Name</th>
               <th>Active</th>
+              {activeSection === 'ticket-statuses' && <th>Default</th>}
               <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
@@ -131,6 +143,17 @@ export default function DropdownManagement() {
                       {item.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
+                  {activeSection === 'ticket-statuses' && (
+                    <td>
+                      <input
+                        type="radio"
+                        name="default-status"
+                        checked={!!item.is_default}
+                        onChange={() => setDefaultMutation.mutate({ id: item.id, isDefault: true })}
+                        title="Set as default for new tickets"
+                      />
+                    </td>
+                  )}
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display:'flex', gap:'6px', justifyContent: 'flex-end' }}>
                       {activeSection === 'ticket-types' && (
