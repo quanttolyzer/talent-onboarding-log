@@ -1,6 +1,7 @@
 const router  = require('express').Router();
 const pool    = require('../config/db');
 const { authMiddleware, requireRole } = require('../middleware/auth');
+const { canAccessTicket } = require('../middleware/access');
 
 // All ticket routes require auth
 router.use(authMiddleware);
@@ -168,6 +169,10 @@ router.get('/:id', async (req, res, next) => {
     `, [req.params.id]);
 
     if (!rows[0]) return res.status(404).json({ error: 'Ticket not found' });
+
+    const allowed = await canAccessTicket(pool, req.user.id, req.user.role, req.params.id);
+    if (!allowed) return res.status(403).json({ error: 'Access denied' });
+
     res.json(rows[0]);
   } catch (err) { next(err); }
 });
