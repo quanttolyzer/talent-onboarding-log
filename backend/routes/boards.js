@@ -35,7 +35,7 @@ router.get('/', async (req, res, next) => {
     const boards = await Promise.all(configs.map(async (config) => {
       if (config.mode === 'board') {
         const { rows: columns } = await pool.query(
-          'SELECT id, label, position FROM board_columns WHERE board_config_id = $1 ORDER BY position',
+          'SELECT id, label, position, card_display_fields FROM board_columns WHERE board_config_id = $1 ORDER BY position',
           [config.id]
         );
         const columnIds = columns.map(c => c.id);
@@ -64,11 +64,35 @@ router.get('/', async (req, res, next) => {
           entries = e;
         }
 
+        // Fetch ticket fields for card display
+        const allCardFields = columns.flatMap(c => c.card_display_fields || []);
+        let ticketFields = {};
+        if (allCardFields.length > 0) {
+          const { rows: [t] } = await pool.query(
+            `SELECT
+               t.id, t.ticket_number, t.ticket_type, t.ticket_status,
+               t.management_type, t.candidate_count, t.remarks,
+               p.name  AS position_name,
+               d.name  AS department_name,
+               u.name  AS task_owner_name
+             FROM tickets t
+             LEFT JOIN positions p   ON p.id = t.position_id
+             LEFT JOIN departments d ON d.id = t.department_id
+             LEFT JOIN users u       ON u.id = t.task_owner_id
+             WHERE t.id = $1`,
+            [ticketId]
+          );
+          if (t) ticketFields = t;
+        }
+
         const columnsWithData = columns.map(col => ({
           ...col,
+          card_display_fields: col.card_display_fields || [],
           fields: fields.filter(f => f.board_column_id === col.id),
           allowed_target_ids: transitions.filter(t => t.from_column_id === col.id).map(t => t.to_column_id),
-          entries: entries.filter(e => e.board_column_id === col.id),
+          entries: entries
+            .filter(e => e.board_column_id === col.id)
+            .map(e => ({ ...e, ticket_fields: ticketFields })),
         }));
 
         return { sort_order: config.sort_order, mode: 'board', columns: columnsWithData };
