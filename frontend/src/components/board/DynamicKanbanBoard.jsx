@@ -72,7 +72,7 @@ function DraggableCard({ entry, column, ticketId, isAdmin }) {
   const qc = useQueryClient();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: entry.id,
-    data: { entryId: entry.id, fromColumnId: column.id, existingFieldValues: entry.field_values },
+    data: { entryId: entry.id, fromColumnId: column.id, existingFieldValues: entry.field_values, ticket_fields: entry.ticket_fields || {}, card_display_fields: column.card_display_fields || [] },
   });
 
   const deleteMutation = useMutation({
@@ -358,7 +358,15 @@ export default function DynamicKanbanBoard({ ticketId, columns, isAdmin }) {
         <DragOverlay>
           {activeCard && (
             <div style={{ ...cardStyle, padding: '8px 12px', cursor: 'grabbing', opacity: 0.9, boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
-              {activeCard.existingFieldValues && Object.values(activeCard.existingFieldValues).find(v => v) || 'Moving...'}
+              {(() => {
+                const fields = activeCard.card_display_fields || [];
+                const tf = activeCard.ticket_fields || {};
+                if (fields.length > 0) {
+                  const val = fields.map(k => tf[k]).find(v => v != null && v !== '');
+                  if (val) return val;
+                }
+                return tf.ticket_number || 'Moving…';
+              })()}
             </div>
           )}
         </DragOverlay>

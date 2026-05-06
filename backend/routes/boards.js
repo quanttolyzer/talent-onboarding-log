@@ -303,7 +303,15 @@ router.post('/phase/:phaseId', async (req, res, next) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
     const { ticketId, phaseId } = req.params;
 
-    const { rows: [phase] } = await pool.query('SELECT label FROM board_phases WHERE id = $1', [phaseId]);
+    const { rows: [phase] } = await pool.query(
+      `SELECT bp.label FROM board_phases bp
+       JOIN board_configs bc ON bc.id = bp.board_config_id
+       JOIN ticket_types tt  ON tt.id = bc.ticket_type_id
+       JOIN tickets t        ON t.ticket_type = tt.name AND t.id = $2
+       WHERE bp.id = $1`,
+      [phaseId, ticketId]
+    );
+    if (!phase) return res.status(400).json({ error: 'Invalid phase for this ticket' });
 
     await pool.query(
       'INSERT INTO ticket_phase_history (ticket_id, board_phase_id, advanced_by) VALUES ($1, $2, $3)',

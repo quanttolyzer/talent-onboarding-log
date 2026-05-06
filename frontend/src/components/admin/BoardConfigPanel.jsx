@@ -307,6 +307,7 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
       position: prev.length + 1,
       fields: [],
       allowed_target_ids: [],
+      card_display_fields: [],
     }]);
   }
 
