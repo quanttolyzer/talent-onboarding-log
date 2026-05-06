@@ -131,7 +131,7 @@ router.get('/dropdowns', async (req, res, next) => {
       pool.query('SELECT id, name, is_active, created_at FROM departments ORDER BY name'),
       pool.query('SELECT id, name, is_active, created_at FROM hiring_managers ORDER BY name'),
       pool.query('SELECT id, label AS name, is_active, created_at FROM country_companies ORDER BY label'),
-      pool.query('SELECT id, name, is_active, created_at FROM ticket_statuses ORDER BY sort_order, name'),
+      pool.query('SELECT id, name, is_active, is_default, created_at FROM ticket_statuses ORDER BY sort_order, name'),
       pool.query('SELECT id, name, is_active, created_at FROM ticket_types ORDER BY sort_order, name'),
       pool.query('SELECT id, name, is_active, created_at FROM management_types ORDER BY sort_order, name'),
       pool.query('SELECT id, name, is_active, created_at FROM actions ORDER BY sort_order, name'),
@@ -360,6 +360,40 @@ const tsCrud  = makeCrud('ticket_statuses',  'Ticket status not found');
 const ttCrud  = makeCrud('ticket_types',     'Ticket type not found');
 const mtCrud  = makeCrud('management_types', 'Management type not found');
 const actCrud = makeCrud('actions',          'Action not found');
+
+// PUT /api/v1/admin/ticket-statuses/:id/set-default
+router.put('/ticket-statuses/:id/set-default', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('UPDATE ticket_statuses SET is_default = false');
+    const { rows } = await client.query(
+      'UPDATE ticket_statuses SET is_default = true WHERE id = $1 RETURNING id, name, is_active, is_default',
+      [req.params.id]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Ticket status not found' });
+    }
+    await client.query('COMMIT');
+    res.json(rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally { client.release(); }
+});
+
+// PUT /api/v1/admin/ticket-statuses/:id/clear-default
+router.put('/ticket-statuses/:id/clear-default', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      'UPDATE ticket_statuses SET is_default = false WHERE id = $1 RETURNING id, name, is_active, is_default',
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Ticket status not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
 
 router.post('/ticket-statuses',        tsCrud.create);
 router.put('/ticket-statuses/:id',     tsCrud.update);
