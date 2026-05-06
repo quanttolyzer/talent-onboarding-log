@@ -4,13 +4,14 @@ import toast from 'react-hot-toast';
 import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 
-function empty() {
+function empty(mappings) {
+  const defaultStatus = (mappings?.ticket_statuses || []).find(s => s.is_default);
   return {
     entry_date:         new Date().toISOString().slice(0, 10),
     task_owner_id:      '',
     ticket_number:      '',
     ticket_type:        '',
-    ticket_status:      '',
+    ticket_status:      defaultStatus?.name || '',
     ticket_date:        '',
     position_id:        '',
     management_type:    '',
@@ -51,7 +52,7 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
         remarks:            ticket.remarks                    || '',
       };
     }
-    return empty();
+    return empty(mappings);
   });
 
   function set(field, value) {
@@ -102,9 +103,14 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
 
   const filteredStatuses = (() => {
     const t = form.ticket_type.toLowerCase();
-    if (t === 'hiring ticket')   return statuses.filter(s => s.name === 'Active');
-    if (t === 'offer ticket' || t === 'onboarding ticket') return statuses.filter(s => s.name === 'In-Progress');
-    return statuses;
+    let base = statuses;
+    if (t === 'hiring ticket')   base = statuses.filter(s => s.name === 'Active');
+    else if (t === 'offer ticket' || t === 'onboarding ticket') base = statuses.filter(s => s.name === 'In-Progress');
+    // Non-admins adding a new ticket: hide the default status (auto-applied on backend)
+    if (!isEdit && user?.role !== 'admin') {
+      base = base.filter(s => !s.is_default);
+    }
+    return base;
   })();
   const managementTypes = mappings?.management_types || [];
   const users           = mappings?.users            || [];
@@ -139,13 +145,15 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
             />
           )}
         </div>
-        <div className="form-group">
-          <label>Task Owner</label>
-          <select value={form.task_owner_id} onChange={e => set('task_owner_id', e.target.value)}>
-            <option value="">Select…</option>
-            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-        </div>
+        {user?.role === 'admin' && (
+          <div className="form-group">
+            <label>Task Owner</label>
+            <select value={form.task_owner_id} onChange={e => set('task_owner_id', e.target.value)}>
+              <option value="">Select…</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+        )}
         <div className="form-group">
           <label>Ticket Number *</label>
           <input required value={form.ticket_number} onChange={e => set('ticket_number', e.target.value)}
