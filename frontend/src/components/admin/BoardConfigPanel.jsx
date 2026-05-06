@@ -4,6 +4,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
+function emptyConfig(sortOrder) {
+  return {
+    id: null,
+    mode: 'board',
+    sort_order: sortOrder,
+    columns: [],
+    phases: [],
+  };
+}
+
 function ColumnFieldsPanel({ column, onChange }) {
   const [open, setOpen] = useState(false);
   const [newLabel, setNewLabel] = useState('');
@@ -103,9 +113,8 @@ function ColumnFieldsPanel({ column, onChange }) {
 
 export default function BoardConfigPanel({ ticketTypeId, onClose }) {
   const qc = useQueryClient();
-  const [mode, setMode] = useState('board');
-  const [columns, setColumns] = useState([]);
-  const [phases, setPhases] = useState([]);
+  const [configs, setConfigs] = useState([emptyConfig(1)]);
+  const [activeIdx, setActiveIdx] = useState(0);
 
   const configQuery = useQuery({
     queryKey: ['board-config-admin', ticketTypeId],
@@ -114,10 +123,54 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
 
   useEffect(() => {
     if (!configQuery.data) return;
-    setMode(configQuery.data.mode || 'board');
-    setColumns((configQuery.data.columns || []).map(c => ({ ...c, fields: c.fields || [] })));
-    setPhases(configQuery.data.phases || []);
+    const incoming = (configQuery.data.configs || []).map((cfg, i) => ({
+      id: cfg.id,
+      mode: cfg.mode || 'board',
+      sort_order: cfg.sort_order || i + 1,
+      columns: (cfg.columns || []).map(c => ({ ...c, fields: c.fields || [] })),
+      phases: cfg.phases || [],
+    }));
+    if (incoming.length === 0) {
+      setConfigs([emptyConfig(1)]);
+      setActiveIdx(0);
+      return;
+    }
+    setConfigs(incoming);
+    setActiveIdx(prev => Math.min(prev, incoming.length - 1));
   }, [configQuery.data]);
+
+  const activeConfig = configs[activeIdx] || emptyConfig(1);
+  const mode = activeConfig.mode || 'board';
+  const columns = activeConfig.columns || [];
+  const phases = activeConfig.phases || [];
+
+  function updateActiveConfig(updater) {
+    setConfigs(prev =>
+      prev.map((cfg, i) =>
+        i === activeIdx
+          ? (typeof updater === 'function' ? updater(cfg) : { ...cfg, ...updater })
+          : cfg
+      )
+    );
+  }
+
+  function setMode(nextMode) {
+    updateActiveConfig(cfg => ({ ...cfg, mode: nextMode }));
+  }
+
+  function setColumns(updater) {
+    updateActiveConfig(cfg => ({
+      ...cfg,
+      columns: typeof updater === 'function' ? updater(cfg.columns || []) : updater,
+    }));
+  }
+
+  function setPhases(updater) {
+    updateActiveConfig(cfg => ({
+      ...cfg,
+      phases: typeof updater === 'function' ? updater(cfg.phases || []) : updater,
+    }));
+  }
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -129,9 +182,11 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
         }
       }
       return api.put(`/admin/board-configs/${ticketTypeId}`, {
+        config_id: activeConfig.id || undefined,
+        sort_order: activeIdx + 1,
         mode,
-        columns: columns.map((c, i) => ({ label: c.label, position: i + 1, fields: c.fields })),
-        phases:  phases.map((p, i)  => ({ label: p.label, position: i + 1 })),
+        columns: columns.map((c, i) => ({ label: c.label, position: i + 1, fields: c.fields || [] })),
+        phases: phases.map((p, i) => ({ label: p.label, position: i + 1 })),
         transitions,
       });
     },
@@ -143,14 +198,39 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.delete(`/admin/board-configs/${ticketTypeId}`),
+    mutationFn: (configId) => api.delete(`/admin/board-configs/${ticketTypeId}/${configId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['board-config-admin', ticketTypeId] });
       toast.success('Board config removed');
-      onClose();
     },
     onError: err => toast.error(err.response?.data?.error || 'Delete failed'),
   });
+
+  function addBoardConfig() {
+    if (configs.length >= 2) {
+      toast.error('Only 2 board configs are allowed per ticket type');
+      return;
+    }
+    setConfigs(prev => [...prev, emptyConfig(prev.length + 1)]);
+    setActiveIdx(configs.length);
+  }
+
+  function removeCurrentConfig() {
+    const cfg = configs[activeIdx];
+    if (!cfg) return;
+    if (!window.confirm('Remove this board config?')) return;
+
+    if (!cfg.id) {
+      setConfigs(prev => {
+        const next = prev.filter((_, i) => i !== activeIdx);
+        return next.length > 0 ? next : [emptyConfig(1)];
+      });
+      setActiveIdx(0);
+      return;
+    }
+
+    deleteMutation.mutate(cfg.id);
+  }
 
   function addColumn() {
     setColumns(prev => [...prev, {
@@ -219,7 +299,29 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
         <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
       </div>
 
-      {/* Mode selector */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: '8px' }}>
+          Boards (max 2)
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {configs.map((cfg, i) => (
+            <button
+              key={cfg.id || `new-${i}`}
+              type="button"
+              className={activeIdx === i ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+              onClick={() => setActiveIdx(i)}
+            >
+              {cfg.mode === 'board' ? '📋 Board' : '📊 Progress'} {i + 1}
+            </button>
+          ))}
+          {configs.length < 2 && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={addBoardConfig}>
+              + Add Board
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="form-group" style={{ marginBottom: '20px' }}>
         <label style={{ marginBottom: '6px', display: 'block', fontSize: '0.82rem' }}>View Mode</label>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -236,7 +338,6 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
         </div>
       </div>
 
-      {/* Board mode */}
       {mode === 'board' && (
         <div>
           <div style={{ marginBottom: '20px' }}>
@@ -322,7 +423,6 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
         </div>
       )}
 
-      {/* Progress mode */}
       {mode === 'progress' && (
         <div style={{ marginBottom: '20px' }}>
           <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: '8px' }}>
@@ -351,10 +451,10 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
         <button
           type="button"
           className="btn btn-danger btn-sm"
-          onClick={() => { if (window.confirm('Remove this board config?')) deleteMutation.mutate(); }}
-          disabled={deleteMutation.isPending || !configQuery.data}
+          onClick={removeCurrentConfig}
+          disabled={deleteMutation.isPending}
         >
-          Remove Config
+          Remove This Board
         </button>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>

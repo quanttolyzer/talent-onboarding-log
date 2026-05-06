@@ -11,65 +11,89 @@ const adminOnly = (req, res, next) => {
 router.use(authMiddleware);
 router.use(adminOnly);
 
+async function loadConfigDetails(client, configId) {
+  const { rows: columns } = await client.query(
+    'SELECT id, label, position FROM board_columns WHERE board_config_id = $1 ORDER BY position',
+    [configId]
+  );
+  const columnIds = columns.map(c => c.id);
+
+  let fields = [];
+  let transitions = [];
+  let phases = [];
+
+  if (columnIds.length > 0) {
+    const { rows: f } = await client.query(
+      `SELECT board_column_id, field_key, is_required, display_order
+       FROM board_column_fields WHERE board_column_id = ANY($1) ORDER BY display_order`,
+      [columnIds]
+    );
+    fields = f;
+
+    const { rows: t } = await client.query(
+      'SELECT from_column_id, to_column_id FROM board_column_transitions WHERE from_column_id = ANY($1)',
+      [columnIds]
+    );
+    transitions = t;
+  }
+
+  const { rows: p } = await client.query(
+    'SELECT id, label, position FROM board_phases WHERE board_config_id = $1 ORDER BY position',
+    [configId]
+  );
+  phases = p;
+
+  const columnsWithData = columns.map(col => ({
+    ...col,
+    fields: fields
+      .filter(f => f.board_column_id === col.id)
+      .map(f => ({ field_key: f.field_key, is_required: f.is_required, display_order: f.display_order })),
+    allowed_target_ids: transitions
+      .filter(t => t.from_column_id === col.id)
+      .map(t => t.to_column_id),
+  }));
+
+  return { columns: columnsWithData, phases };
+}
+
 // GET /api/v1/admin/board-configs/:ticketTypeId
 router.get('/:ticketTypeId', async (req, res, next) => {
   try {
     const { ticketTypeId } = req.params;
-    const { rows: [config] } = await pool.query(
-      'SELECT id, mode FROM board_configs WHERE ticket_type_id = $1',
+    const { rows: configs } = await pool.query(
+      'SELECT id, mode, sort_order FROM board_configs WHERE ticket_type_id = $1 ORDER BY sort_order, created_at, id',
       [ticketTypeId]
     );
-    if (!config) return res.json(null);
+    if (configs.length === 0) return res.json({ configs: [] });
 
-    const { rows: columns } = await pool.query(
-      'SELECT id, label, position FROM board_columns WHERE board_config_id = $1 ORDER BY position',
-      [config.id]
+    const expanded = await Promise.all(
+      configs.map(async (cfg) => {
+        const details = await loadConfigDetails(pool, cfg.id);
+        return {
+          id: cfg.id,
+          mode: cfg.mode,
+          sort_order: cfg.sort_order,
+          columns: details.columns,
+          phases: details.phases,
+        };
+      })
     );
-    const columnIds = columns.map(c => c.id);
 
-    let fields = [], transitions = [], phases = [];
-
-    if (columnIds.length > 0) {
-      const { rows: f } = await pool.query(
-        `SELECT board_column_id, field_key, is_required, display_order
-         FROM board_column_fields WHERE board_column_id = ANY($1) ORDER BY display_order`,
-        [columnIds]
-      );
-      fields = f;
-
-      const { rows: t } = await pool.query(
-        'SELECT from_column_id, to_column_id FROM board_column_transitions WHERE from_column_id = ANY($1)',
-        [columnIds]
-      );
-      transitions = t;
-    }
-
-    if (config.mode === 'progress') {
-      const { rows: p } = await pool.query(
-        'SELECT id, label, position FROM board_phases WHERE board_config_id = $1 ORDER BY position',
-        [config.id]
-      );
-      phases = p;
-    }
-
-    const columnsWithData = columns.map(col => ({
-      ...col,
-      fields: fields
-        .filter(f => f.board_column_id === col.id)
-        .map(f => ({ field_key: f.field_key, is_required: f.is_required, display_order: f.display_order })),
-      allowed_target_ids: transitions
-        .filter(t => t.from_column_id === col.id)
-        .map(t => t.to_column_id),
-    }));
-
-    res.json({ mode: config.mode, columns: columnsWithData, phases });
+    res.json({ configs: expanded });
   } catch (err) { next(err); }
 });
 
 // PUT /api/v1/admin/board-configs/:ticketTypeId
 router.put('/:ticketTypeId', async (req, res, next) => {
   const { ticketTypeId } = req.params;
-  const { mode, columns = [], phases = [], transitions = [] } = req.body;
+  const {
+    config_id: configId,
+    sort_order: requestedSortOrder,
+    mode,
+    columns = [],
+    phases = [],
+    transitions = [],
+  } = req.body;
 
   // Validate before acquiring a DB connection
   if (!['board', 'progress'].includes(mode)) {
@@ -93,23 +117,55 @@ router.put('/:ticketTypeId', async (req, res, next) => {
   try {
     await client.query('BEGIN');
 
-    const { rows: [config] } = await client.query(
-      `INSERT INTO board_configs (ticket_type_id, mode)
-       VALUES ($1, $2)
-       ON CONFLICT (ticket_type_id) DO UPDATE SET mode = EXCLUDED.mode
-       RETURNING id`,
-      [ticketTypeId, mode]
-    );
+    let activeConfigId = configId;
+    let activeSortOrder = Number.isInteger(requestedSortOrder) ? requestedSortOrder : null;
 
-    await client.query('DELETE FROM board_columns WHERE board_config_id = $1', [config.id]);
-    await client.query('DELETE FROM board_phases   WHERE board_config_id = $1', [config.id]);
+    if (activeConfigId) {
+      const { rows: [existing] } = await client.query(
+        'SELECT id, sort_order FROM board_configs WHERE id = $1 AND ticket_type_id = $2',
+        [activeConfigId, ticketTypeId]
+      );
+      if (!existing) {
+        const err = new Error('Board config not found');
+        err.status = 404;
+        throw err;
+      }
+      if (activeSortOrder == null) activeSortOrder = existing.sort_order;
+
+      await client.query(
+        'UPDATE board_configs SET mode = $1, sort_order = $2 WHERE id = $3',
+        [mode, activeSortOrder, activeConfigId]
+      );
+    } else {
+      const { rows: [counter] } = await client.query(
+        'SELECT COUNT(*)::int AS count FROM board_configs WHERE ticket_type_id = $1',
+        [ticketTypeId]
+      );
+      if (counter.count >= 2) {
+        const err = new Error('A ticket type can only have up to 2 board configs');
+        err.status = 400;
+        throw err;
+      }
+      if (activeSortOrder == null) activeSortOrder = counter.count + 1;
+
+      const { rows: [created] } = await client.query(
+        `INSERT INTO board_configs (ticket_type_id, mode, sort_order)
+         VALUES ($1, $2, $3)
+         RETURNING id`,
+        [ticketTypeId, mode, activeSortOrder]
+      );
+      activeConfigId = created.id;
+    }
+
+    await client.query('DELETE FROM board_columns WHERE board_config_id = $1', [activeConfigId]);
+    await client.query('DELETE FROM board_phases   WHERE board_config_id = $1', [activeConfigId]);
 
     if (mode === 'board') {
       const labelToId = {};
       for (const col of columns) {
         const { rows: [inserted] } = await client.query(
           'INSERT INTO board_columns (board_config_id, label, position) VALUES ($1, $2, $3) RETURNING id',
-          [config.id, col.label, col.position]
+          [activeConfigId, col.label, col.position]
         );
         labelToId[col.label] = inserted.id;
         for (const field of (col.fields || [])) {
@@ -138,11 +194,60 @@ router.put('/:ticketTypeId', async (req, res, next) => {
       for (const phase of phases) {
         await client.query(
           'INSERT INTO board_phases (board_config_id, label, position) VALUES ($1, $2, $3)',
-          [config.id, phase.label, phase.position]
+          [activeConfigId, phase.label, phase.position]
         );
       }
     }
 
+    await client.query(
+      `WITH ordered AS (
+         SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order, created_at, id) AS rn
+         FROM board_configs
+         WHERE ticket_type_id = $1
+       )
+       UPDATE board_configs bc
+       SET sort_order = ordered.rn
+       FROM ordered
+       WHERE bc.id = ordered.id`,
+      [ticketTypeId]
+    );
+
+    await client.query('COMMIT');
+    res.json({ ok: true, id: activeConfigId });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE /api/v1/admin/board-configs/:ticketTypeId/:configId
+router.delete('/:ticketTypeId/:configId', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { ticketTypeId, configId } = req.params;
+    const { rowCount } = await client.query(
+      'DELETE FROM board_configs WHERE ticket_type_id = $1 AND id = $2',
+      [ticketTypeId, configId]
+    );
+    if (rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Board config not found' });
+    }
+    await client.query(
+      `WITH ordered AS (
+         SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order, created_at, id) AS rn
+         FROM board_configs
+         WHERE ticket_type_id = $1
+       )
+       UPDATE board_configs bc
+       SET sort_order = ordered.rn
+       FROM ordered
+       WHERE bc.id = ordered.id`,
+      [ticketTypeId]
+    );
     await client.query('COMMIT');
     res.json({ ok: true });
   } catch (err) {
@@ -153,7 +258,7 @@ router.put('/:ticketTypeId', async (req, res, next) => {
   }
 });
 
-// DELETE /api/v1/admin/board-configs/:ticketTypeId
+// DELETE /api/v1/admin/board-configs/:ticketTypeId (legacy: delete all)
 router.delete('/:ticketTypeId', async (req, res, next) => {
   try {
     const { rowCount } = await pool.query(

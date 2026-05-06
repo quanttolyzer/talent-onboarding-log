@@ -12,13 +12,30 @@ async function seed() {
     );
     if (!hiringType) throw new Error('"Hiring Ticket" not found in ticket_types table');
 
-    const { rows: [config] } = await client.query(
-      `INSERT INTO board_configs (ticket_type_id, mode)
-       VALUES ($1, 'board')
-       ON CONFLICT (ticket_type_id) DO UPDATE SET mode = 'board'
-       RETURNING id`,
+    let config;
+    const { rows: [existing] } = await client.query(
+      `SELECT id
+       FROM board_configs
+       WHERE ticket_type_id = $1
+       ORDER BY sort_order, created_at, id
+       LIMIT 1`,
       [hiringType.id]
     );
+    if (existing) {
+      const { rows: [updated] } = await client.query(
+        'UPDATE board_configs SET mode = $1, sort_order = 1 WHERE id = $2 RETURNING id',
+        ['board', existing.id]
+      );
+      config = updated;
+    } else {
+      const { rows: [created] } = await client.query(
+        `INSERT INTO board_configs (ticket_type_id, mode, sort_order)
+         VALUES ($1, 'board', 1)
+         RETURNING id`,
+        [hiringType.id]
+      );
+      config = created;
+    }
 
     // Wipe existing columns (cascade → fields, transitions)
     await client.query('DELETE FROM board_columns WHERE board_config_id = $1', [config.id]);
