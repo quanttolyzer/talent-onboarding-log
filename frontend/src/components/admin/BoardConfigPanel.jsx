@@ -4,6 +4,67 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 
+const TICKET_CARD_FIELDS = [
+  { key: 'ticket_number',   label: 'Ticket Number' },
+  { key: 'ticket_type',     label: 'Ticket Type' },
+  { key: 'ticket_status',   label: 'Status' },
+  { key: 'position_name',   label: 'Position' },
+  { key: 'department_name', label: 'Department' },
+  { key: 'management_type', label: 'Management Type' },
+  { key: 'task_owner_name', label: 'Task Owner' },
+  { key: 'candidate_count', label: 'Candidates' },
+  { key: 'remarks',         label: 'Remarks' },
+];
+
+function CardDisplayFieldsPanel({ column, onChange }) {
+  const [open, setOpen] = useState(false);
+  const current = column.card_display_fields || [];
+
+  function toggle(key) {
+    const next = current.includes(key)
+      ? current.filter(k => k !== key)
+      : [...current, key];
+    onChange({ ...column, card_display_fields: next });
+  }
+
+  return (
+    <div style={{ marginTop: '6px' }}>
+      <button
+        type="button"
+        className="btn btn-ghost btn-xs"
+        onClick={() => setOpen(o => !o)}
+        style={{ fontSize: '0.75rem' }}
+      >
+        Card Display Fields ({current.length}) {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div style={{
+          marginTop: '8px',
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          padding: '10px',
+        }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: '8px' }}>
+            Select ticket fields to show on board cards for this column.
+          </p>
+          {TICKET_CARD_FIELDS.map(f => (
+            <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px', fontSize: '0.82rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={current.includes(f.key)}
+                onChange={() => toggle(f.key)}
+                style={{ width: 'auto' }}
+              />
+              {f.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function emptyConfig(sortOrder) {
   return {
     id: null,
@@ -127,7 +188,7 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
       id: cfg.id,
       mode: cfg.mode || 'board',
       sort_order: cfg.sort_order || i + 1,
-      columns: (cfg.columns || []).map(c => ({ ...c, fields: c.fields || [] })),
+      columns: (cfg.columns || []).map(c => ({ ...c, fields: c.fields || [], card_display_fields: c.card_display_fields || [] })),
       phases: cfg.phases || [],
     }));
     if (incoming.length === 0) {
@@ -191,7 +252,7 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
           config_id: cfg.id || undefined,
           sort_order: idx + 1,
           mode: cfg.mode || 'board',
-          columns: cfgColumns.map((c, i) => ({ label: c.label, position: i + 1, fields: c.fields || [] })),
+          columns: cfgColumns.map((c, i) => ({ label: c.label, position: i + 1, fields: c.fields || [], card_display_fields: c.card_display_fields || [] })),
           phases: cfgPhases.map((p, i) => ({ label: p.label, position: i + 1 })),
           transitions,
         });
@@ -376,6 +437,7 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
                   </button>
                 </div>
                 <ColumnFieldsPanel column={col} onChange={updated => updateColumn(idx, updated)} />
+                <CardDisplayFieldsPanel column={col} onChange={updated => updateColumn(idx, updated)} />
               </div>
             ))}
             <button type="button" className="btn btn-ghost btn-sm" onClick={addColumn}>
