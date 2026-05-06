@@ -173,22 +173,29 @@ export default function BoardConfigPanel({ ticketTypeId, onClose }) {
   }
 
   const saveMutation = useMutation({
-    mutationFn: () => {
-      const transitions = [];
-      for (const col of columns) {
-        for (const toId of (col.allowed_target_ids || [])) {
-          const toCol = columns.find(c => c.id === toId);
-          if (toCol) transitions.push({ from_label: col.label, to_label: toCol.label });
+    mutationFn: async () => {
+      for (let idx = 0; idx < configs.length; idx += 1) {
+        const cfg = configs[idx];
+        const cfgColumns = cfg.columns || [];
+        const cfgPhases = cfg.phases || [];
+        const transitions = [];
+
+        for (const col of cfgColumns) {
+          for (const toId of (col.allowed_target_ids || [])) {
+            const toCol = cfgColumns.find(c => c.id === toId);
+            if (toCol) transitions.push({ from_label: col.label, to_label: toCol.label });
+          }
         }
+
+        await api.put(`/admin/board-configs/${ticketTypeId}`, {
+          config_id: cfg.id || undefined,
+          sort_order: idx + 1,
+          mode: cfg.mode || 'board',
+          columns: cfgColumns.map((c, i) => ({ label: c.label, position: i + 1, fields: c.fields || [] })),
+          phases: cfgPhases.map((p, i) => ({ label: p.label, position: i + 1 })),
+          transitions,
+        });
       }
-      return api.put(`/admin/board-configs/${ticketTypeId}`, {
-        config_id: activeConfig.id || undefined,
-        sort_order: activeIdx + 1,
-        mode,
-        columns: columns.map((c, i) => ({ label: c.label, position: i + 1, fields: c.fields || [] })),
-        phases: phases.map((p, i) => ({ label: p.label, position: i + 1 })),
-        transitions,
-      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['board-config-admin', ticketTypeId] });
