@@ -77,66 +77,83 @@ export default function StickyNotesPanel({ ticketId }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <h2 style={{ fontWeight: 700, fontSize: '1rem', margin: 0 }}>
-          Notes {notes.length > 0 && <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{notes.length}</span>}
+          Notes <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>{notes.length}</span>
         </h2>
-        {!composing && (
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ fontSize: '1.1rem', lineHeight: 1, padding: '4px 8px' }}
-            onClick={() => setComposing(true)}
-          >
-            +
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Saved just now</span>
+          {!composing && (
+            <button
+              style={{
+                width: '32px', height: '32px', borderRadius: '50%',
+                background: '#1a1a1a', color: '#fff', border: 'none',
+                cursor: 'pointer', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: '1.2rem', fontWeight: 700,
+              }}
+              onClick={() => setComposing(true)}
+            >
+              +
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Compose area */}
       {composing && (
         <div style={{
           background: colorHex(draftColor),
-          borderRadius: '12px',
-          padding: '12px',
+          borderRadius: '8px',
+          padding: '14px',
           marginBottom: '16px',
-          border: '2px solid rgba(0,0,0,0.1)',
+          border: '2px solid rgba(0,0,0,0.15)',
         }}>
           <textarea
             autoFocus
             value={draft}
             onChange={e => setDraft(e.target.value)}
             placeholder="Write a note..."
-            rows={3}
+            rows={4}
             style={{
-              width: '100%', border: 'none', background: 'transparent',
+              width: '100%', border: '2px solid rgba(0,0,0,0.2)', background: 'transparent',
               resize: 'vertical', fontFamily: 'var(--font)', fontSize: '0.88rem',
-              outline: 'none', color: '#1a1a1a',
+              outline: 'none', color: '#1a1a1a', borderRadius: '4px', padding: '8px',
             }}
           />
           {/* Color picker */}
-          <div style={{ display: 'flex', gap: '6px', margin: '8px 0' }}>
+          <div style={{ display: 'flex', gap: '10px', margin: '12px 0' }}>
             {COLORS.map(c => (
               <button
                 key={c.name}
                 type="button"
                 onClick={() => setDraftColor(c.name)}
                 style={{
-                  width: '22px', height: '22px', borderRadius: '50%',
+                  width: '28px', height: '28px', borderRadius: '50%',
                   background: c.hex,
-                  border: draftColor === c.name ? '2px solid #1a1a1a' : '2px solid transparent',
+                  border: draftColor === c.name ? '3px solid #1a1a1a' : '2px solid rgba(0,0,0,0.2)',
                   cursor: 'pointer', padding: 0,
                 }}
               />
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '10px' }}>
             <button
-              className="btn btn-sm"
-              style={{ background: '#1a1a1a', color: '#fff', border: 'none' }}
+              style={{ 
+                background: '#1a1a1a', color: '#fff', border: 'none', 
+                borderRadius: '4px', padding: '8px 16px', fontSize: '0.88rem',
+                fontWeight: 600, cursor: 'pointer', 
+              }}
               disabled={!draft.trim() || createMutation.isPending}
               onClick={() => createMutation.mutate({ content: draft, color: draftColor })}
             >
               Save
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => { setComposing(false); setDraft(''); }}>
+            <button 
+              style={{ 
+                background: 'rgba(0,0,0,0.06)', color: '#1a1a1a', border: 'none', 
+                borderRadius: '4px', padding: '8px 16px', fontSize: '0.88rem',
+                cursor: 'pointer',
+              }}
+              onClick={() => { setComposing(false); setDraft(''); }}
+            >
               Cancel
             </button>
           </div>
@@ -147,18 +164,18 @@ export default function StickyNotesPanel({ ticketId }) {
 
       {/* Notes grid */}
       {notes.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           {notes.map(note => (
             <div
               key={note.id}
               style={{
                 background: colorHex(note.color),
-                borderRadius: '10px',
-                padding: '10px 12px',
-                border: '1px solid rgba(0,0,0,0.06)',
+                borderRadius: '8px',
+                padding: '12px',
+                border: '2px solid rgba(0,0,0,0.15)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '6px',
+                gap: '8px',
               }}
             >
               {editingId === note.id ? (
@@ -170,18 +187,28 @@ export default function StickyNotesPanel({ ticketId }) {
                     rows={3}
                     style={{
                       width: '100%', border: '1px solid rgba(0,0,0,0.2)',
-                      borderRadius: '6px', background: 'rgba(255,255,255,0.4)',
+                      borderRadius: '4px', background: 'rgba(255,255,255,0.5)',
                       fontFamily: 'var(--font)', fontSize: '0.84rem',
-                      padding: '4px 6px', resize: 'vertical',
+                      padding: '6px 8px', resize: 'vertical',
                     }}
                   />
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button
-                      className="btn btn-sm"
-                      style={{ background: '#1a1a1a', color: '#fff', border: 'none', fontSize: '0.75rem' }}
+                      style={{ 
+                        background: '#1a1a1a', color: '#fff', border: 'none', 
+                        borderRadius: '3px', padding: '6px 12px', fontSize: '0.75rem',
+                        cursor: 'pointer',
+                      }}
                       onClick={() => saveEdit(note)}
                     >Save</button>
-                    <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem' }} onClick={() => setEditingId(null)}>Cancel</button>
+                    <button 
+                      style={{ 
+                        background: 'rgba(0,0,0,0.06)', color: '#1a1a1a', 
+                        border: 'none', borderRadius: '3px', padding: '6px 12px', 
+                        fontSize: '0.75rem', cursor: 'pointer',
+                      }} 
+                      onClick={() => setEditingId(null)}
+                    >Cancel</button>
                   </div>
                 </>
               ) : (
@@ -200,18 +227,19 @@ export default function StickyNotesPanel({ ticketId }) {
                         onClick={() => patchMutation.mutate({ noteId: note.id, is_done: !note.is_done })}
                         style={{
                           width: '24px', height: '24px', borderRadius: '50%',
-                          background: note.is_done ? '#1a1a1a' : 'rgba(0,0,0,0.12)',
-                          border: 'none', cursor: 'pointer', display: 'flex',
+                          background: note.is_done ? '#1a1a1a' : 'transparent',
+                          border: note.is_done ? 'none' : '2px solid rgba(0,0,0,0.2)',
+                          cursor: 'pointer', display: 'flex',
                           alignItems: 'center', justifyContent: 'center', color: note.is_done ? '#fff' : '#1a1a1a',
-                          fontSize: '0.75rem',
+                          fontSize: '0.65rem', padding: 0,
                         }}
                         title={note.is_done ? 'Mark undone' : 'Mark done'}
-                      >✓</button>
+                      >{note.is_done ? '✓' : ''}</button>
                       <button
                         onClick={() => startEdit(note)}
                         style={{
                           background: 'transparent', border: 'none', cursor: 'pointer',
-                          fontSize: '0.85rem', color: '#555', padding: '2px 4px',
+                          fontSize: '0.85rem', color: '#666', padding: '2px 4px',
                         }}
                         title="Edit"
                       >✎</button>
@@ -219,7 +247,7 @@ export default function StickyNotesPanel({ ticketId }) {
                         onClick={() => handleDelete(note)}
                         style={{
                           background: 'transparent', border: 'none', cursor: 'pointer',
-                          fontSize: '0.85rem', color: '#555', padding: '2px 4px',
+                          fontSize: '0.85rem', color: '#666', padding: '2px 4px',
                         }}
                         title="Delete"
                       >✕</button>
