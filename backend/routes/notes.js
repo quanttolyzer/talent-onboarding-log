@@ -2,6 +2,8 @@ const router = require('express').Router({ mergeParams: true });
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 
+const VALID_COLORS = ['yellow', 'orange', 'pink', 'teal', 'green', 'light-pink', 'light-blue'];
+
 router.use(authMiddleware);
 
 // GET /api/v1/tickets/:ticketId/notes
@@ -26,6 +28,7 @@ router.post('/', async (req, res, next) => {
     const { ticketId } = req.params;
     const { content, color = 'yellow' } = req.body;
     if (!content?.trim()) return res.status(400).json({ error: 'Content is required' });
+    if (color && !VALID_COLORS.includes(color)) return res.status(400).json({ error: 'Invalid color' });
 
     const { rows: [note] } = await pool.query(
       `INSERT INTO ticket_notes (ticket_id, created_by, content, color)
@@ -58,9 +61,18 @@ router.patch('/:noteId', async (req, res, next) => {
     const updates = [];
     const params = [];
     let pi = 1;
-    if (content !== undefined) { updates.push(`content = $${pi++}`); params.push(content.trim()); }
-    if (color   !== undefined) { updates.push(`color = $${pi++}`);   params.push(color); }
-    if (is_done !== undefined) { updates.push(`is_done = $${pi++}`); params.push(is_done); }
+    if (content !== undefined) {
+      const trimmed = content.trim();
+      if (!trimmed) return res.status(400).json({ error: 'Content cannot be empty' });
+      updates.push(`content = $${pi++}`);
+      params.push(trimmed);
+    }
+    if (color !== undefined) {
+      if (!VALID_COLORS.includes(color)) return res.status(400).json({ error: 'Invalid color' });
+      updates.push(`color = $${pi++}`);
+      params.push(color);
+    }
+    if (is_done !== undefined) { updates.push(`is_done = $${pi++}`); params.push(Boolean(is_done)); }
     if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
     updates.push(`updated_at = now()`);
     params.push(noteId, ticketId);
@@ -91,7 +103,7 @@ router.delete('/:noteId', async (req, res, next) => {
       }
     }
 
-    await pool.query('DELETE FROM ticket_notes WHERE id = $1', [noteId]);
+    await pool.query('DELETE FROM ticket_notes WHERE id = $1 AND ticket_id = $2', [noteId, ticketId]);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
