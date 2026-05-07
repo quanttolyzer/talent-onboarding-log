@@ -61,7 +61,11 @@ router.get('/:ticketTypeId', async (req, res, next) => {
   try {
     const { ticketTypeId } = req.params;
     const { rows: configs } = await pool.query(
-      'SELECT id, mode, sort_order FROM board_configs WHERE ticket_type_id = $1 ORDER BY sort_order, created_at, id',
+      `SELECT id, mode
+       FROM board_configs
+       WHERE ticket_type_id = $1
+         AND is_archived = false
+       ORDER BY sort_order, created_at, id`,
       [ticketTypeId]
     );
     if (configs.length === 0) return res.json({ configs: [] });
@@ -72,7 +76,6 @@ router.get('/:ticketTypeId', async (req, res, next) => {
         return {
           id: cfg.id,
           mode: cfg.mode,
-          sort_order: cfg.sort_order,
           columns: details.columns,
           phases: details.phases,
         };
@@ -88,7 +91,6 @@ router.put('/:ticketTypeId', async (req, res, next) => {
   const { ticketTypeId } = req.params;
   const {
     config_id: configId,
-    sort_order: requestedSortOrder,
     mode,
     columns = [],
     phases = [],
@@ -118,11 +120,12 @@ router.put('/:ticketTypeId', async (req, res, next) => {
     await client.query('BEGIN');
 
     let activeConfigId = configId;
-    let activeSortOrder = Number.isInteger(requestedSortOrder) ? requestedSortOrder : null;
 
     if (activeConfigId) {
       const { rows: [existing] } = await client.query(
-        'SELECT id, sort_order FROM board_configs WHERE id = $1 AND ticket_type_id = $2',
+        `SELECT id, mode, sort_order
+         FROM board_configs
+         WHERE id = $1 AND ticket_type_id = $2 AND is_archived = false`,
         [activeConfigId, ticketTypeId]
       );
       if (!existing) {
@@ -130,29 +133,44 @@ router.put('/:ticketTypeId', async (req, res, next) => {
         err.status = 404;
         throw err;
       }
-      if (activeSortOrder == null) activeSortOrder = existing.sort_order;
 
-      await client.query(
-        'UPDATE board_configs SET mode = $1, sort_order = $2 WHERE id = $3',
-        [mode, activeSortOrder, activeConfigId]
+      const { rows: [usage] } = await client.query(
+        `SELECT EXISTS(
+           SELECT 1 FROM ticket_board_configs WHERE board_config_id = $1
+         ) AS in_use`,
+        [activeConfigId]
       );
+
+      if (usage.in_use) {
+        await client.query(
+          'UPDATE board_configs SET is_archived = true WHERE id = $1',
+          [activeConfigId]
+        );
+        const { rows: [created] } = await client.query(
+          `INSERT INTO board_configs (ticket_type_id, mode, sort_order)
+           VALUES ($1, $2, $3)
+           RETURNING id`,
+          [ticketTypeId, mode, existing.sort_order]
+        );
+        activeConfigId = created.id;
+      } else {
+        await client.query(
+          'UPDATE board_configs SET mode = $1 WHERE id = $2',
+          [mode, activeConfigId]
+        );
+      }
     } else {
-      const { rows: [counter] } = await client.query(
-        'SELECT COUNT(*)::int AS count FROM board_configs WHERE ticket_type_id = $1',
+      const { rows: [last] } = await client.query(
+        `SELECT COALESCE(MAX(sort_order), 0)::int AS max_order
+         FROM board_configs
+         WHERE ticket_type_id = $1 AND is_archived = false`,
         [ticketTypeId]
       );
-      if (counter.count >= 2) {
-        const err = new Error('A ticket type can only have up to 2 board configs');
-        err.status = 400;
-        throw err;
-      }
-      if (activeSortOrder == null) activeSortOrder = counter.count + 1;
-
       const { rows: [created] } = await client.query(
         `INSERT INTO board_configs (ticket_type_id, mode, sort_order)
          VALUES ($1, $2, $3)
          RETURNING id`,
-        [ticketTypeId, mode, activeSortOrder]
+        [ticketTypeId, mode, last.max_order + 1]
       );
       activeConfigId = created.id;
     }
@@ -231,19 +249,6 @@ router.put('/:ticketTypeId', async (req, res, next) => {
       }
     }
 
-    await client.query(
-      `WITH ordered AS (
-         SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order, created_at, id) AS rn
-         FROM board_configs
-         WHERE ticket_type_id = $1
-       )
-       UPDATE board_configs bc
-       SET sort_order = ordered.rn
-       FROM ordered
-       WHERE bc.id = ordered.id`,
-      [ticketTypeId]
-    );
-
     await client.query('COMMIT');
     res.json({ ok: true, id: activeConfigId });
   } catch (err) {
@@ -260,26 +265,34 @@ router.delete('/:ticketTypeId/:configId', async (req, res, next) => {
   try {
     await client.query('BEGIN');
     const { ticketTypeId, configId } = req.params;
-    const { rowCount } = await client.query(
-      'DELETE FROM board_configs WHERE ticket_type_id = $1 AND id = $2',
-      [ticketTypeId, configId]
+    const { rows: [usage] } = await client.query(
+      `SELECT EXISTS(
+         SELECT 1 FROM ticket_board_configs WHERE board_config_id = $1
+       ) AS in_use`,
+      [configId]
     );
-    if (rowCount === 0) {
+
+    let affected = 0;
+    if (usage.in_use) {
+      const result = await client.query(
+        `UPDATE board_configs
+         SET is_archived = true
+         WHERE ticket_type_id = $1 AND id = $2 AND is_archived = false`,
+        [ticketTypeId, configId]
+      );
+      affected = result.rowCount;
+    } else {
+      const result = await client.query(
+        'DELETE FROM board_configs WHERE ticket_type_id = $1 AND id = $2',
+        [ticketTypeId, configId]
+      );
+      affected = result.rowCount;
+    }
+
+    if (affected === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Board config not found' });
     }
-    await client.query(
-      `WITH ordered AS (
-         SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order, created_at, id) AS rn
-         FROM board_configs
-         WHERE ticket_type_id = $1
-       )
-       UPDATE board_configs bc
-       SET sort_order = ordered.rn
-       FROM ordered
-       WHERE bc.id = ordered.id`,
-      [ticketTypeId]
-    );
     await client.query('COMMIT');
     res.json({ ok: true });
   } catch (err) {
@@ -292,14 +305,45 @@ router.delete('/:ticketTypeId/:configId', async (req, res, next) => {
 
 // DELETE /api/v1/admin/board-configs/:ticketTypeId (legacy: delete all)
 router.delete('/:ticketTypeId', async (req, res, next) => {
+  const client = await pool.connect();
   try {
-    const { rowCount } = await pool.query(
-      'DELETE FROM board_configs WHERE ticket_type_id = $1',
-      [req.params.ticketTypeId]
+    await client.query('BEGIN');
+    const ticketTypeId = req.params.ticketTypeId;
+
+    const archived = await client.query(
+      `UPDATE board_configs bc
+       SET is_archived = true
+       WHERE bc.ticket_type_id = $1
+         AND bc.is_archived = false
+         AND EXISTS (
+           SELECT 1 FROM ticket_board_configs tbc WHERE tbc.board_config_id = bc.id
+         )`,
+      [ticketTypeId]
     );
-    if (rowCount === 0) return res.status(404).json({ error: 'Board config not found' });
+
+    const deleted = await client.query(
+      `DELETE FROM board_configs bc
+       WHERE bc.ticket_type_id = $1
+         AND bc.is_archived = false
+         AND NOT EXISTS (
+           SELECT 1 FROM ticket_board_configs tbc WHERE tbc.board_config_id = bc.id
+         )`,
+      [ticketTypeId]
+    );
+
+    if (archived.rowCount + deleted.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Board config not found' });
+    }
+
+    await client.query('COMMIT');
     res.json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
 });
 
 module.exports = router;

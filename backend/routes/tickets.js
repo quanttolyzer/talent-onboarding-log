@@ -28,6 +28,20 @@ function generateGroupCode() {
   return `POS-${date}-${rand}`;
 }
 
+async function assignBoardConfigsToTicket(client, ticketId, ticketTypeName) {
+  await client.query(
+    `INSERT INTO ticket_board_configs (ticket_id, board_config_id)
+     SELECT $1, bc.id
+     FROM board_configs bc
+     JOIN ticket_types tt ON tt.id = bc.ticket_type_id
+     WHERE tt.name = $2
+       AND bc.is_archived = false
+     ORDER BY bc.sort_order, bc.created_at, bc.id
+     ON CONFLICT (ticket_id, board_config_id) DO NOTHING`,
+    [ticketId, ticketTypeName]
+  );
+}
+
 // ── GET /tickets ──────────────────────────────────────────────
 // Supports: page, limit, search, status, ticket_type, task_owner_id,
 //           position_id, department_id, entry_date_from, entry_date_to
@@ -230,6 +244,7 @@ router.post('/', async (req, res, next) => {
     ]);
 
     await writeAudit(client, rows[0].id, req.user.id, 'created', null, 'new ticket');
+    await assignBoardConfigsToTicket(client, rows[0].id, rows[0].ticket_type);
     await client.query('COMMIT');
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -381,6 +396,7 @@ router.post('/bulk-clone', async (req, res, next) => {
       ]);
 
       await writeAudit(client, cloned_row.id, req.user.id, 'created', null, `cloned from ${srcId}`);
+      await assignBoardConfigsToTicket(client, cloned_row.id, cloned_row.ticket_type);
       cloned.push(cloned_row);
     }
 

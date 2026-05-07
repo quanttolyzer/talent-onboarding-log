@@ -6,6 +6,21 @@ const { canAccessTicket } = require('../middleware/access');
 
 router.use(authMiddleware);
 
+async function ensureTicketBoardBindings(client, ticketId) {
+  await client.query(
+    `INSERT INTO ticket_board_configs (ticket_id, board_config_id)
+     SELECT t.id, bc.id
+     FROM tickets t
+     JOIN ticket_types tt ON tt.name = t.ticket_type
+     JOIN board_configs bc ON bc.ticket_type_id = tt.id
+     WHERE t.id = $1
+       AND bc.is_archived = false
+     ORDER BY bc.sort_order, bc.created_at, bc.id
+     ON CONFLICT (ticket_id, board_config_id) DO NOTHING`,
+    [ticketId]
+  );
+}
+
 // GET /api/v1/tickets/:ticketId/board
 router.get('/', async (req, res, next) => {
   try {
@@ -13,20 +28,22 @@ router.get('/', async (req, res, next) => {
 
     const allowed = await canAccessTicket(pool, req.user.id, req.user.role, ticketId);
     if (!allowed) return res.status(403).json({ error: 'Access denied' });
+    await ensureTicketBoardBindings(pool, ticketId);
 
     const { rows: [ticket] } = await pool.query(
       'SELECT id, ticket_type FROM tickets WHERE id = $1',
       [ticketId]
     );
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    await ensureTicketBoardBindings(pool, ticketId);
 
     const { rows: configs } = await pool.query(
-      `SELECT bc.id, bc.mode, bc.sort_order
+      `SELECT bc.id, bc.mode
        FROM board_configs bc
-       JOIN ticket_types tt ON tt.id = bc.ticket_type_id
-       WHERE tt.name = $1
-       ORDER BY bc.sort_order`,
-      [ticket.ticket_type]
+       JOIN ticket_board_configs tbc ON tbc.board_config_id = bc.id
+       WHERE tbc.ticket_id = $1
+       ORDER BY tbc.bound_at, bc.sort_order, bc.created_at, bc.id`,
+      [ticketId]
     );
     if (configs.length === 0) {
       return res.status(404).json({ error: 'No board configured for this ticket type' });
@@ -95,7 +112,7 @@ router.get('/', async (req, res, next) => {
             .map(e => ({ ...e, ticket_fields: ticketFields })),
         }));
 
-        return { sort_order: config.sort_order, mode: 'board', columns: columnsWithData };
+        return { mode: 'board', columns: columnsWithData };
       }
 
       // Progress mode
@@ -116,7 +133,7 @@ router.get('/', async (req, res, next) => {
       );
       const current_phase_id = history.length > 0 ? history[history.length - 1].board_phase_id : null;
 
-      return { sort_order: config.sort_order, mode: 'progress', phases, current_phase_id, history };
+      return { mode: 'progress', phases, current_phase_id, history };
     }));
 
     res.json({ boards });
@@ -130,16 +147,16 @@ router.post('/entries', async (req, res, next) => {
 
     const allowed = await canAccessTicket(pool, req.user.id, req.user.role, ticketId);
     if (!allowed) return res.status(403).json({ error: 'Access denied' });
+    await ensureTicketBoardBindings(pool, ticketId);
 
     const { board_column_id, field_values = {} } = req.body;
     if (!board_column_id) return res.status(400).json({ error: 'board_column_id is required' });
 
     const { rows: [colCheck] } = await pool.query(
       `SELECT bc_col.id FROM board_columns bc_col
-       JOIN board_configs bc   ON bc.id    = bc_col.board_config_id
-       JOIN ticket_types tt    ON tt.id    = bc.ticket_type_id
-       JOIN tickets t          ON t.ticket_type = tt.name
-       WHERE bc_col.id = $1 AND t.id = $2`,
+       JOIN board_configs bc ON bc.id = bc_col.board_config_id
+       JOIN ticket_board_configs tbc ON tbc.board_config_id = bc.id
+       WHERE bc_col.id = $1 AND tbc.ticket_id = $2`,
       [board_column_id, ticketId]
     );
     if (!colCheck) return res.status(400).json({ error: 'Invalid column for this ticket' });
@@ -250,10 +267,9 @@ router.post('/advance', async (req, res, next) => {
 
     const { rows: [config] } = await pool.query(
       `SELECT bc.id FROM board_configs bc
-       JOIN ticket_types tt ON tt.id = bc.ticket_type_id
-       JOIN tickets t       ON t.ticket_type = tt.name
-       WHERE t.id = $1 AND bc.mode = 'progress'
-       ORDER BY bc.sort_order
+       JOIN ticket_board_configs tbc ON tbc.board_config_id = bc.id
+       WHERE tbc.ticket_id = $1 AND bc.mode = 'progress'
+       ORDER BY tbc.bound_at, bc.sort_order, bc.created_at, bc.id
        LIMIT 1`,
       [ticketId]
     );
@@ -302,13 +318,13 @@ router.post('/phase/:phaseId', async (req, res, next) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
     const { ticketId, phaseId } = req.params;
+    await ensureTicketBoardBindings(pool, ticketId);
 
     const { rows: [phase] } = await pool.query(
       `SELECT bp.label FROM board_phases bp
        JOIN board_configs bc ON bc.id = bp.board_config_id
-       JOIN ticket_types tt  ON tt.id = bc.ticket_type_id
-       JOIN tickets t        ON t.ticket_type = tt.name AND t.id = $2
-       WHERE bp.id = $1`,
+       JOIN ticket_board_configs tbc ON tbc.board_config_id = bc.id
+       WHERE bp.id = $1 AND tbc.ticket_id = $2`,
       [phaseId, ticketId]
     );
     if (!phase) return res.status(400).json({ error: 'Invalid phase for this ticket' });
