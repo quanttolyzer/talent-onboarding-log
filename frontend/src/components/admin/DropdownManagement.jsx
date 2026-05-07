@@ -35,19 +35,19 @@ export default function DropdownManagement() {
 
   const createMutation = useMutation({
     mutationFn: (payload) => api.post(`/admin/${activeSection}`, payload).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries(['admin-dropdowns']); setShowCreate(false); toast.success('Created'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-dropdowns'] }); setShowCreate(false); toast.success('Created'); },
     onError: (e) => toast.error(e.response?.data?.error || 'Create failed'),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...body }) => api.put(`/admin/${activeSection}/${id}`, body).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries(['admin-dropdowns']); setEditing(null); toast.success('Updated'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-dropdowns'] }); setEditing(null); toast.success('Updated'); },
     onError: (e) => toast.error(e.response?.data?.error || 'Update failed'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/admin/${activeSection}/${id}`).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries(['admin-dropdowns']); toast.success('Deleted'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-dropdowns'] }); toast.success('Deleted'); },
     onError: (e) => toast.error(e.response?.data?.error || 'Delete failed'),
   });
 
@@ -58,7 +58,7 @@ export default function DropdownManagement() {
         : `/admin/ticket-statuses/${id}/clear-default`;
       return api.put(endpoint).then(r => r.data);
     },
-    onSuccess: () => { qc.invalidateQueries(['admin-dropdowns']); toast.success('Default updated'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-dropdowns'] }); toast.success('Default updated'); },
     onError: (e) => toast.error(e.response?.data?.error || 'Failed'),
   });
 

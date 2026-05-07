@@ -12,7 +12,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-talent_onboarding}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./backend/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-talentapp} -d ${POSTGRES_DB:-talent_onboarding}"]
       interval: 10s

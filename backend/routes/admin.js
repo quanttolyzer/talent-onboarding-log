@@ -361,43 +361,43 @@ const ttCrud  = makeCrud('ticket_types',     'Ticket type not found');
 const mtCrud  = makeCrud('management_types', 'Management type not found');
 const actCrud = makeCrud('actions',          'Action not found');
 
-// PUT /api/v1/admin/ticket-statuses/:id/set-default
-router.put('/ticket-statuses/:id/set-default', async (req, res, next) => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('UPDATE ticket_statuses SET is_default = false');
-    const { rows } = await client.query(
-      'UPDATE ticket_statuses SET is_default = true WHERE id = $1 RETURNING id, name, is_active, is_default',
-      [req.params.id]
-    );
-    if (!rows.length) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Ticket status not found' });
-    }
-    await client.query('COMMIT');
-    res.json(rows[0]);
-  } catch (err) {
-    await client.query('ROLLBACK');
-    next(err);
-  } finally { client.release(); }
-});
 
-// PUT /api/v1/admin/ticket-statuses/:id/clear-default
-router.put('/ticket-statuses/:id/clear-default', async (req, res, next) => {
-  try {
-    const { rows } = await pool.query(
-      'UPDATE ticket_statuses SET is_default = false WHERE id = $1 RETURNING id, name, is_active, is_default',
-      [req.params.id]
-    );
-    if (!rows.length) return res.status(404).json({ error: 'Ticket status not found' });
-    res.json(rows[0]);
-  } catch (err) { next(err); }
-});
 
 router.post('/ticket-statuses',        tsCrud.create);
 router.put('/ticket-statuses/:id',     tsCrud.update);
 router.delete('/ticket-statuses/:id',  tsCrud.del);
+
+async function setDefaultTicketStatus(req, res, next) {
+  try {
+    const { id } = req.params;
+    await pool.query('UPDATE ticket_statuses SET is_default = false');
+    const { rows } = await pool.query(
+      'UPDATE ticket_statuses SET is_default = true WHERE id = $1 RETURNING id, name, is_default',
+      [id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Ticket status not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+}
+
+async function clearDefaultTicketStatus(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      'UPDATE ticket_statuses SET is_default = false WHERE id = $1 RETURNING id, name, is_default',
+      [id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Ticket status not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+}
+
+// Keep both POST and PUT for compatibility with existing frontend calls
+router.post('/ticket-statuses/:id/set-default', setDefaultTicketStatus);
+router.put('/ticket-statuses/:id/set-default', setDefaultTicketStatus);
+router.post('/ticket-statuses/:id/clear-default', clearDefaultTicketStatus);
+router.put('/ticket-statuses/:id/clear-default', clearDefaultTicketStatus);
+
 
 router.post('/ticket-types',           ttCrud.create);
 router.put('/ticket-types/:id',        ttCrud.update);
