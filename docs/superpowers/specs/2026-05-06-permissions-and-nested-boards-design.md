@@ -37,7 +37,7 @@ The Actions column colgroup entry changes from `118px` to `150px`. Admin sees 4 
 
 ### 2A: Shared helper `canAccessTicket`
 
-Add to `backend/routes/tickets.js` and `backend/routes/boards.js` (or extract to `backend/middleware/access.js`):
+Extract to `backend/middleware/access.js` and import in both route files to avoid duplication:
 
 ```js
 async function canAccessTicket(pool, userId, userRole, ticketId) {
@@ -149,7 +149,8 @@ No immediate change required. Removing the DB unique constraint allows the exist
 |------|--------|
 | `frontend/src/pages/DashboardPage.jsx` | Actions col width 118px → 150px |
 | `frontend/src/components/UpdateProgressModal.jsx` | ticket_type display-only, remove from form state |
-| `backend/routes/tickets.js` | Add `canAccessTicket` helper + call on `GET /:id` |
-| `backend/routes/boards.js` | Add `canAccessTicket` helper + call on GET, POST entries, PATCH move |
+| `backend/middleware/access.js` | New file — exports `canAccessTicket(pool, userId, userRole, ticketId)` |
+| `backend/routes/tickets.js` | Import `canAccessTicket`, call on `GET /:id` |
+| `backend/routes/boards.js` | Import `canAccessTicket`, call on GET, POST entries, PATCH move |
 | `backend/database/` | New migration: drop unique constraint, add sort_order to board_configs |
 | `frontend/src/pages/TicketBoardPage.jsx` | Map over `data.boards` array instead of single board object |

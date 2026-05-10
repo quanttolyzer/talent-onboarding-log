@@ -13,7 +13,7 @@ router.use(adminOnly);
 
 async function loadConfigDetails(client, configId) {
   const { rows: columns } = await client.query(
-    'SELECT id, label, position FROM board_columns WHERE board_config_id = $1 ORDER BY position',
+    'SELECT id, label, position, card_display_fields FROM board_columns WHERE board_config_id = $1 ORDER BY position',
     [configId]
   );
   const columnIds = columns.map(c => c.id);

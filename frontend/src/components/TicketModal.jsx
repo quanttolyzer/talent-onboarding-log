@@ -209,14 +209,14 @@ export default function TicketModal({ mode, ticket, mappings, onClose, onSaved }
           <label>Ultimate Hiring Manager</label>
           <select value={form.ultimate_hm_id} onChange={e => set('ultimate_hm_id', e.target.value)}>
             <option value="">Select…</option>
-            {(mappings?.hiring_managers || []).map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+            {(mappings?.ultimate_hiring_managers || mappings?.hiring_managers || []).map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label>Direct Hiring Manager</label>
           <select value={form.direct_hm_id} onChange={e => set('direct_hm_id', e.target.value)}>
             <option value="">Select…</option>
-            {(mappings?.hiring_managers || []).map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+            {(mappings?.direct_hiring_managers || mappings?.hiring_managers || []).map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
           </select>
         </div>
         <div className="form-group">

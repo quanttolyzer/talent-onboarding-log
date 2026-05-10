@@ -125,7 +125,7 @@ router.get('/dropdowns', async (req, res, next) => {
     const [
       positions, departments, hiringManagers, countryCompanies,
       ticketStatuses, ticketTypes, managementTypes, actions, subActions,
-      autoFillRules, assessmentLevels,
+      autoFillRules, assessmentLevels, directHms, ultimateHms,
     ] = await Promise.all([
       pool.query('SELECT id, name, management_type, is_active, created_at FROM positions ORDER BY name'),
       pool.query('SELECT id, name, is_active, created_at FROM departments ORDER BY name'),
@@ -138,20 +138,24 @@ router.get('/dropdowns', async (req, res, next) => {
       pool.query('SELECT id, action_name, name, is_active, created_at FROM sub_actions ORDER BY action_name, sort_order, name'),
       pool.query('SELECT id, action_value, sub_action_value, is_active, created_at FROM action_subaction_rules ORDER BY action_value'),
       pool.query('SELECT id, name, is_active, created_at FROM assessment_levels ORDER BY sort_order, name'),
+      pool.query(`SELECT id, name, is_active, created_at FROM hiring_managers WHERE hm_role IN ('direct','both') ORDER BY name`),
+      pool.query(`SELECT id, name, is_active, created_at FROM hiring_managers WHERE hm_role IN ('ultimate','both') ORDER BY name`),
     ]);
 
     res.json({
-      positions:              positions.rows,
-      departments:            departments.rows,
-      hiring_managers:        hiringManagers.rows,
-      country_companies:      countryCompanies.rows,
-      ticket_statuses:        ticketStatuses.rows,
-      ticket_types:           ticketTypes.rows,
-      management_types:       managementTypes.rows,
-      actions:                actions.rows,
-      sub_actions:            subActions.rows,
-      action_subaction_rules: autoFillRules.rows,
-      assessment_levels:      assessmentLevels.rows,
+      positions:               positions.rows,
+      departments:             departments.rows,
+      hiring_managers:         hiringManagers.rows,
+      direct_hiring_managers:  directHms.rows,
+      ultimate_hiring_managers: ultimateHms.rows,
+      country_companies:       countryCompanies.rows,
+      ticket_statuses:         ticketStatuses.rows,
+      ticket_types:            ticketTypes.rows,
+      management_types:        managementTypes.rows,
+      actions:                 actions.rows,
+      sub_actions:             subActions.rows,
+      action_subaction_rules:  autoFillRules.rows,
+      assessment_levels:       assessmentLevels.rows,
     });
   } catch (err) { next(err); }
 });
@@ -276,6 +280,88 @@ router.delete('/hiring-managers/:id', async (req, res, next) => {
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Hiring manager not found' });
     res.json({ message: 'Hiring manager deleted successfully' });
+  } catch (err) { next(err); }
+});
+
+// ── DIRECT HIRING MANAGERS ────────────────────────────────────
+
+// POST /api/v1/admin/direct-hiring-managers
+router.post('/direct-hiring-managers', async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const { rows } = await pool.query(
+      `INSERT INTO hiring_managers (name, hm_role) VALUES ($1, 'direct')
+       RETURNING id, name, is_active, created_at`,
+      [name]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// PUT /api/v1/admin/direct-hiring-managers/:id
+router.put('/direct-hiring-managers/:id', async (req, res, next) => {
+  try {
+    const { name, is_active } = req.body;
+    const { rows } = await pool.query(
+      `UPDATE hiring_managers SET name = $1, is_active = $2 WHERE id = $3
+       RETURNING id, name, is_active, created_at`,
+      [name, is_active, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Hiring manager not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/v1/admin/direct-hiring-managers/:id
+router.delete('/direct-hiring-managers/:id', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      'DELETE FROM hiring_managers WHERE id = $1 RETURNING id', [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Hiring manager not found' });
+    res.json({ message: 'Deleted successfully' });
+  } catch (err) { next(err); }
+});
+
+// ── ULTIMATE HIRING MANAGERS ───────────────────────────────────
+
+// POST /api/v1/admin/ultimate-hiring-managers
+router.post('/ultimate-hiring-managers', async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const { rows } = await pool.query(
+      `INSERT INTO hiring_managers (name, hm_role) VALUES ($1, 'ultimate')
+       RETURNING id, name, is_active, created_at`,
+      [name]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// PUT /api/v1/admin/ultimate-hiring-managers/:id
+router.put('/ultimate-hiring-managers/:id', async (req, res, next) => {
+  try {
+    const { name, is_active } = req.body;
+    const { rows } = await pool.query(
+      `UPDATE hiring_managers SET name = $1, is_active = $2 WHERE id = $3
+       RETURNING id, name, is_active, created_at`,
+      [name, is_active, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Hiring manager not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/v1/admin/ultimate-hiring-managers/:id
+router.delete('/ultimate-hiring-managers/:id', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      'DELETE FROM hiring_managers WHERE id = $1 RETURNING id', [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Hiring manager not found' });
+    res.json({ message: 'Deleted successfully' });
   } catch (err) { next(err); }
 });
 

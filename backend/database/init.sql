@@ -56,6 +56,7 @@ CREATE TABLE departments (
 CREATE TABLE hiring_managers (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name       VARCHAR(255) NOT NULL UNIQUE,
+  hm_role    TEXT NOT NULL DEFAULT 'both' CHECK (hm_role IN ('direct', 'ultimate', 'both')),
   is_active  BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -279,8 +280,7 @@ CREATE TABLE board_columns (
   position        INTEGER NOT NULL,
   card_display_fields JSONB NOT NULL DEFAULT '[]',
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (board_config_id, label),
-  UNIQUE (board_config_id, position)
+  UNIQUE (board_config_id, label)
 );
 
 CREATE INDEX idx_board_columns_config ON board_columns(board_config_id);
@@ -425,3 +425,26 @@ CREATE INDEX idx_tickets_department ON tickets(department_id);
 CREATE INDEX idx_tickets_group ON tickets(group_id);
 CREATE INDEX idx_tickets_group_master ON tickets(group_id, is_group_master);
 CREATE INDEX idx_tickets_sub_action ON tickets(sub_action);
+
+CREATE INDEX idx_tickets_fts ON tickets USING gin(
+  to_tsvector('english',
+    coalesce(ticket_number, '') || ' ' ||
+    coalesce(remarks, '') || ' ' ||
+    coalesce(sub_action, '')
+  )
+);
+
+-- ============================================================
+-- SEED: default admin user only
+-- Fixed UUID so JWT tokens survive docker compose down -v
+-- Default password: "password" — change after first login
+-- ============================================================
+
+INSERT INTO users (id, name, email, password_hash, role)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  'Admin',
+  'admin@talent.internal',
+  '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+  'admin'
+);

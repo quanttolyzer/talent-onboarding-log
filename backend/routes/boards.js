@@ -28,7 +28,6 @@ router.get('/', async (req, res, next) => {
 
     const allowed = await canAccessTicket(pool, req.user.id, req.user.role, ticketId);
     if (!allowed) return res.status(403).json({ error: 'Access denied' });
-    await ensureTicketBoardBindings(pool, ticketId);
 
     const { rows: [ticket] } = await pool.query(
       'SELECT id, ticket_type FROM tickets WHERE id = $1',
@@ -264,6 +263,7 @@ router.post('/advance', async (req, res, next) => {
 
     const allowed = await canAccessTicket(pool, req.user.id, req.user.role, ticketId);
     if (!allowed) return res.status(403).json({ error: 'Access denied' });
+    await ensureTicketBoardBindings(pool, ticketId);
 
     const { rows: [config] } = await pool.query(
       `SELECT bc.id FROM board_configs bc

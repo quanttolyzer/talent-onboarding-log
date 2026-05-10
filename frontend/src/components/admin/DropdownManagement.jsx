@@ -5,14 +5,15 @@ import api from '../../lib/api';
 import BoardConfigPanel from './BoardConfigPanel';
 
 const SECTIONS = [
-  { id: 'positions',         label: 'Positions' },
-  { id: 'departments',       label: 'Departments' },
-  { id: 'hiring-managers',   label: 'Hiring Managers' },
-  { id: 'country-companies', label: 'Country / Companies' },
-  { id: 'ticket-statuses',   label: 'Ticket Statuses' },
-  { id: 'ticket-types',      label: 'Ticket Types' },
-  { id: 'management-types',  label: 'Management Types' },
-  { id: 'assessment-levels', label: 'Assessment Levels' },
+  { id: 'positions',              label: 'Positions' },
+  { id: 'departments',            label: 'Departments' },
+  { id: 'direct-hiring-managers',   label: 'Direct HM' },
+  { id: 'ultimate-hiring-managers', label: 'Ultimate HM' },
+  { id: 'country-companies',      label: 'Country / Companies' },
+  { id: 'ticket-statuses',        label: 'Ticket Statuses' },
+  { id: 'ticket-types',           label: 'Ticket Types' },
+  { id: 'management-types',       label: 'Management Types' },
+  { id: 'assessment-levels',      label: 'Assessment Levels' },
 ];
 
 function dataKey(sectionId) {
@@ -65,6 +66,7 @@ export default function DropdownManagement() {
   const key       = dataKey(activeSection);
   const allItems  = raw[key] || [];
   const tableItems = allItems;
+  const colCount  = activeSection === 'ticket-statuses' ? 4 : 3;
 
   const currentSection = SECTIONS.find(s => s.id === activeSection);
 
@@ -121,12 +123,12 @@ export default function DropdownManagement() {
           </thead>
           <tbody>
             {q.isLoading && (
-              <tr><td colSpan={3} style={{ textAlign:'center', padding:'40px' }}>
+              <tr><td colSpan={colCount} style={{ textAlign:'center', padding:'40px' }}>
                 <div className="spinner" style={{ margin:'0 auto' }} />
               </td></tr>
             )}
             {!q.isLoading && tableItems.length === 0 && (
-              <tr><td colSpan={3} style={{ textAlign:'center', padding:'40px', color:'var(--text-2)' }}>
+              <tr><td colSpan={colCount} style={{ textAlign:'center', padding:'40px', color:'var(--text-2)' }}>
                 No {currentSection?.label.toLowerCase()} found.
               </td></tr>
             )}
